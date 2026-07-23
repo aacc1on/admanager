@@ -1,0 +1,84 @@
+<!-- File: views/operator.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= target.username %> — Admin Panel</title>
+  <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <main class="container admin-container">
+    <header class="top-bar">
+      <div class="brand-row-inline">
+        <img class="brand-logo-sm" src="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" alt="BetConstruct logo" />
+        <h1><%= target.username %></h1>
+      </div>
+      <div class="top-bar-actions">
+        <a href="/admin" class="link-button">&larr; Back to Admin Panel</a>
+        <span class="signed-in-as">Signed in as <strong><%= currentUsername %></strong></span>
+      </div>
+    </header>
+
+    <section class="stat-cards">
+      <div class="stat-card">
+        <span class="stat-value"><span class="badge badge-<%= target.role %>"><%= target.role %></span></span>
+        <span class="stat-label">Role</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value"><span class="badge badge-<%= target.status %>"><%= target.status %></span></span>
+        <span class="stat-label">Status</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value"><%= successCount %></span>
+        <span class="stat-label">Accounts created</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value"><%= failedCount %></span>
+        <span class="stat-label">Failed attempts</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">Account details</div>
+      <div class="panel-body">
+        <p class="hint">Created <%= new Date(target.createdAt).toLocaleString() %> by <%= target.createdBy || 'unknown' %></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">Full activity history (<%= activity.length %>)</div>
+      <div class="panel-body no-pad">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Partner</th>
+              <th>givenName</th>
+              <th>AD account</th>
+              <th>Status</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% activity.forEach(function (a) { %>
+              <tr>
+                <td><%= new Date(a.timestamp).toLocaleString() %></td>
+                <td><%= a.partner %> (<%= a.partnerId %>)</td>
+                <td><%= a.givenName || '—' %></td>
+                <td><%= a.username || '—' %></td>
+                <td><span class="badge badge-status-<%= a.status %>"><%= a.status %></span></td>
+                <td><%= a.executionTimeMs ? a.executionTimeMs + ' ms' : '—' %></td>
+              </tr>
+            <% }) %>
+            <% if (!activity.length) { %>
+              <tr><td colspan="6" class="hint">No activity yet for this operator</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

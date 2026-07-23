@@ -207,4 +207,3 @@ docker compose up -d --build
 - Some internal error messages in `admanager.service.js` and `mail.service.js` are written in Armenian; the rest of the codebase (UI, comments, SSE messages) is in English.
 - All app users share a single ADManager Plus `AUTH_TOKEN` — app roles (`admin`/`operator`) control access to this tool, not to Active Directory itself.
 - Generated passwords are only ever shown once (in the browser, and only if the credential email fails to send) — they are never persisted or logged in plaintext.
-# admanager

@@ -1,0 +1,110 @@
+<!-- File: views/index.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Provisioning</title>
+  <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <main class="container" data-group-ou="<%= groupOu %>" data-sam-max-length="<%= samMaxLength %>">
+    <header class="top-bar">
+      <div class="top-bar-actions">
+        <% if (role === 'admin') { %>
+          <a href="/admin" class="link-button">Admin Panel</a>
+        <% } %>
+        <form method="POST" action="/logout" class="logout-form">
+          <span class="signed-in-as">Signed in as <strong><%= username %></strong></span>
+          <button type="submit" class="link-button">Sign out</button>
+        </form>
+      </div>
+    </header>
+
+    <div class="brand-banner">
+      <img class="brand-logo" src="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" alt="BetConstruct logo" />
+      <h1>User Provisioning</h1>
+    </div>
+
+    <div class="test-connection">
+      <button type="button" id="testConnectionBtn">Test Connection (ADManager Plus)</button>
+      <span id="testConnectionResult"></span>
+    </div>
+
+    <form id="provisionForm" novalidate>
+      <label>Requested By
+        <input type="text" name="agpUsername" required placeholder="administrator" />
+        <span class="hint">Your ADManager Plus operator username, for the audit log only</span>
+      </label>
+
+      <div class="panel">
+        <div class="panel-header">Partner &amp; group (shared by every user below)</div>
+        <div class="panel-body">
+          <label>Partner ID
+            <input type="text" name="partnerId" id="partnerId" required placeholder="e.g. 900" />
+            <span class="hint">Unique partner ID number — used to build the group name</span>
+          </label>
+
+          <label>Partner Name <code class="field-map">→ sn, company</code>
+            <input type="text" name="partnerName" id="partnerName" required placeholder="e.g. Betconstruct" />
+            <span class="hint">Saved as both the "sn" and "company" AD attributes for every user created below</span>
+          </label>
+
+          <div class="group-preview" id="groupPreview" hidden>
+            <span class="group-preview-label">memberof (computed)</span>
+            <code id="groupPreviewName">—</code>
+            <span class="hint">This group name cannot be verified against AD automatically — please confirm it exists in ADManager Plus before submitting.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="users-section">
+        <div class="users-section-header">
+          <span>Users to create <span class="users-count" id="usersCount">(1)</span></span>
+          <button type="button" id="addUserBtn" class="secondary-btn">+ Add another user</button>
+        </div>
+        <div id="userRows"></div>
+        <span class="hint">Each user gets its own givenName, Alt Security Identity (AGP) and email — all are added to the same group above.</span>
+      </div>
+
+      <label class="checkbox-line">
+        <input type="checkbox" id="groupConfirmed" name="groupConfirmed" value="true" />
+        I have verified this group name in ADManager Plus
+      </label>
+
+      <button type="submit" id="submitBtn" disabled>Create Users</button>
+    </form>
+
+    <template id="userRowTemplate">
+      <div class="user-row" data-user-row>
+        <div class="user-row-header">
+          <span class="user-row-title">User <span data-row-number>1</span></span>
+          <button type="button" class="remove-user-btn" data-remove-row>Remove</button>
+        </div>
+        <label>givenName
+          <input type="text" data-field="givenName" required maxlength="100" placeholder="e.g. test900" />
+          <span class="hint" data-given-name-hint>Often the same value as Alt Security Identity below</span>
+        </label>
+        <label>Alt Security Identity (AGP) <code class="field-map">→ altSecurityIdentities</code>
+          <div class="prefixed-input">
+            <span class="prefix">agp:</span>
+            <input type="text" data-field="altSecurityIdSuffix" required placeholder="e.g. test900" />
+          </div>
+          <span class="hint">Must be unique per user</span>
+        </label>
+        <label>Email Address
+          <input type="email" data-field="email" required placeholder="john.smith@company.com" />
+          <span class="hint">Where this user's credentials will be sent (or copied manually)</span>
+        </label>
+      </div>
+    </template>
+
+    <section id="statusWindow" class="status-window" hidden>
+      <h2>Status</h2>
+      <ul id="statusList"></ul>
+    </section>
+  </main>
+  <script src="/js/main.js"></script>
+</body>
+</html>

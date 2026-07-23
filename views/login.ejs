@@ -1,0 +1,30 @@
+<!-- File: views/login.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in — User Provisioning</title>
+  <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="login-body">
+  <main class="login-card">
+    <img class="brand-logo" src="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" alt="BetConstruct logo" />
+    <h1>User Provisioning</h1>
+    <p class="subtitle">Sign in to continue</p>
+    <% if (error) { %>
+      <p class="login-error"><%= error %></p>
+    <% } %>
+    <form method="POST" action="/login">
+      <label>Username
+        <input type="text" name="username" required autofocus />
+      </label>
+      <label>Password
+        <input type="password" name="password" required />
+      </label>
+      <button type="submit">Sign in</button>
+    </form>
+  </main>
+</body>
+</html>

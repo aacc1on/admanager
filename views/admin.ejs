@@ -1,0 +1,164 @@
+<!-- File: views/admin.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Panel — User Provisioning</title>
+  <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <main class="container admin-container">
+    <header class="top-bar">
+      <div class="brand-row-inline">
+        <img class="brand-logo-sm" src="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" alt="BetConstruct logo" />
+        <h1>Admin Panel</h1>
+      </div>
+      <div class="top-bar-actions">
+        <a href="/" class="link-button">Back to form</a>
+        <form method="POST" action="/logout" class="logout-form">
+          <span class="signed-in-as">Signed in as <strong><%= currentUsername %></strong></span>
+          <button type="submit" class="link-button">Sign out</button>
+        </form>
+      </div>
+    </header>
+
+    <% if (notice) { %><div class="notice notice-success"><%= notice %></div><% } %>
+    <% if (error) { %><div class="notice notice-error"><%= error %></div><% } %>
+
+    <section class="stat-cards">
+      <div class="stat-card">
+        <span class="stat-value"><%= stats.totalOperations %></span>
+        <span class="stat-label">Total operations</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value"><%= stats.successCount %></span>
+        <span class="stat-label">Successful</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value"><%= stats.failedCount %></span>
+        <span class="stat-label">Failed</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value"><%= stats.totalOperations ? Math.round((stats.successCount / stats.totalOperations) * 100) : 0 %>%</span>
+        <span class="stat-label">Success rate</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">Successful operations — last 7 days</div>
+      <div class="panel-body">
+        <div class="bar-chart">
+          <% stats.last7Days.forEach(function (d) { %>
+            <div class="bar-col">
+              <div class="bar" style="height: <%= Math.max(4, d.count * 22) %>px" title="<%= d.count %> on <%= d.day %>"></div>
+              <span class="bar-value"><%= d.count %></span>
+              <span class="bar-label"><%= d.day.slice(5) %></span>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">Create operator account</div>
+      <div class="panel-body">
+        <form method="POST" action="/admin/users" class="inline-form">
+          <label>Username
+            <input type="text" name="username" required />
+          </label>
+          <label>Password
+            <input type="password" name="password" required minlength="6" />
+          </label>
+          <label>Role
+            <select name="role">
+              <option value="operator">Operator</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <button type="submit">Create user</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">App users (<%= users.length %>)</div>
+      <div class="panel-body no-pad">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>AD accounts created</th>
+              <th>Success / Failed</th>
+              <th>Last activity</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% users.forEach(function (u) { %>
+              <tr>
+                <td><a href="/admin/users/<%= u.id %>" class="link-button"><%= u.username %></a></td>
+                <td><span class="badge badge-<%= u.role %>"><%= u.role %></span></td>
+                <td><span class="badge badge-<%= u.status %>"><%= u.status %></span></td>
+                <td><%= u.totalCreated %></td>
+                <td><%= u.successCreated %> / <%= u.failedCreated %></td>
+                <td><%= u.lastActivity ? new Date(u.lastActivity).toLocaleString() : '—' %></td>
+                <td><%= new Date(u.createdAt).toLocaleDateString() %></td>
+                <td class="row-actions">
+                  <% if (u.username !== currentUsername) { %>
+                    <form method="POST" action="/admin/users/<%= u.id %>/block" class="inline">
+                      <button type="submit" class="link-button"><%= u.status === 'active' ? 'Block' : 'Unblock' %></button>
+                    </form>
+                    <form method="POST" action="/admin/users/<%= u.id %>/delete" class="inline" onsubmit="return confirm('Delete this user?');">
+                      <button type="submit" class="link-button danger">Delete</button>
+                    </form>
+                  <% } else { %>
+                    <span class="hint">(you)</span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">Recent activity (last 100)</div>
+      <div class="panel-body no-pad">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Operator</th>
+              <th>Partner</th>
+              <th>givenName</th>
+              <th>AD account</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% activity.forEach(function (a) { %>
+              <tr>
+                <td><%= new Date(a.timestamp).toLocaleString() %></td>
+                <td><%= a.operator || '—' %></td>
+                <td><%= a.partner %> (<%= a.partnerId %>)</td>
+                <td><%= a.givenName || '—' %></td>
+                <td><%= a.username || '—' %></td>
+                <td><span class="badge badge-status-<%= a.status %>"><%= a.status %></span></td>
+              </tr>
+            <% }) %>
+            <% if (!activity.length) { %>
+              <tr><td colspan="6" class="hint">No activity yet</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
