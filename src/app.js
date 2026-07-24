@@ -4,6 +4,7 @@ const session = require('express-session');
 const path = require('path');
 const routes = require('./routes');
 const adminRoutes = require('./routes/admin');
+const passwordResetRoutes = require('./routes/passwordReset');
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use(session({
 }));
 
 app.use('/admin', adminRoutes);
+app.use('/reset-password', passwordResetRoutes);
 app.use('/', routes);
 
 app.use(function (err, req, res, next) {

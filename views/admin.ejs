@@ -17,6 +17,7 @@
       </div>
       <div class="top-bar-actions">
         <a href="/" class="link-button">Back to form</a>
+        <a href="/reset-password" class="link-button">Password Reset</a>
         <form method="POST" action="/logout" class="logout-form">
           <span class="signed-in-as">Signed in as <strong><%= currentUsername %></strong></span>
           <button type="submit" class="link-button">Sign out</button>
@@ -146,9 +147,19 @@
               <tr>
                 <td><%= new Date(a.timestamp).toLocaleString() %></td>
                 <td><%= a.operator || '—' %></td>
-                <td><%= a.partner %> (<%= a.partnerId %>)</td>
-                <td><%= a.givenName || '—' %></td>
-                <td><%= a.username || '—' %></td>
+                <% if (a.type === 'password_reset') { %>
+                  <td>Password reset</td>
+                  <td><%= a.targetEmail || '—' %> (AD account)</td>
+                  <td><%= a.notifyEmail || '—' %> (notified)</td>
+                <% } else { %>
+                  <td><%= a.partner %> (<%= a.partnerId %>)</td>
+                  <td><%= a.givenName || '—' %></td>
+                  <td>
+                    <%= a.username || '—' %>
+                    <% if (a.targetEmail) { %><br><span class="hint"><%= a.targetEmail %></span><% } %>
+                    <% if (a.notifyEmail) { %><br><span class="hint">sent to <%= a.notifyEmail %></span><% } %>
+                  </td>
+                <% } %>
                 <td><span class="badge badge-status-<%= a.status %>"><%= a.status %></span></td>
               </tr>
             <% }) %>

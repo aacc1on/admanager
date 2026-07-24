@@ -13,6 +13,7 @@
     <header class="top-bar">
       <div class="top-bar-actions">
         <% if (role === 'admin') { %>
+          <a href="/reset-password" class="link-button">Password Reset</a>
           <a href="/admin" class="link-button">Admin Panel</a>
         <% } %>
         <form method="POST" action="/logout" class="logout-form">
@@ -65,7 +66,7 @@
           <button type="button" id="addUserBtn" class="secondary-btn">+ Add another user</button>
         </div>
         <div id="userRows"></div>
-        <span class="hint">Each user gets its own givenName, Alt Security Identity (AGP) and email — all are added to the same group above.</span>
+        <span class="hint">Each user gets its own givenName, Alt Security Identity (AGP) and contact email — all are added to the same group above.</span>
       </div>
 
       <label class="checkbox-line">
@@ -93,9 +94,9 @@
           </div>
           <span class="hint">Must be unique per user</span>
         </label>
-        <label>Email Address
+        <label>Contact Email
           <input type="email" data-field="email" required placeholder="john.smith@company.com" />
-          <span class="hint">Where this user's credentials will be sent (or copied manually)</span>
+          <span class="hint">Where to send this user's new AD account address (givenName@<%= userMailDomain %>) and password — not the new AD mailbox itself, since it can't be reached without the password</span>
         </label>
       </div>
     </template>

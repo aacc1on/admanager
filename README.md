@@ -120,14 +120,30 @@ logs/                            audit.log, error.log — gitignored
 
 Provisioning happens over `GET /provision/stream`, a **Server-Sent Events** endpoint — the browser gets a live step-by-step feed instead of waiting for one big response. Steps (each reported as `progress` / `done` / `warn` / `error`):
 
-1. **Validate** — Joi validates the operator name, partner ID/name, and each user (name, "alt security ID" suffix, email). The operator must have manually checked "I have verified this group name in ADManager Plus" (the UI forces re-confirmation whenever partner name/ID changes). A short in-memory dedupe cache also rejects an identical submission (`partnerId + name + email`) if resubmitted within `DEDUPE_WINDOW_SECONDS`.
+1. **Validate** — Joi validates the operator name, partner ID/name, and each user (name, "alt security ID" suffix, contact email). The operator must have manually checked "I have verified this group name in ADManager Plus" (the UI forces re-confirmation whenever partner name/ID changes). A short in-memory dedupe cache also rejects an identical submission (`partnerId + givenName + email`) if resubmitted within `DEDUPE_WINDOW_SECONDS`.
 2. **Resolve the partner group** — Builds the group name as `<PartnerName>-RDS-<PartnerId>`. Searches for it in AD via `SearchGroup`; if found, reuses its DN. If not found, creates it via `CreateGroup` using `GROUP_TEMPLATE_NAME`, `GROUP_TYPE`, `GROUP_SCOPE`, and `GROUP_OU`. If the group API call fails outright (e.g. insufficient permissions), the app falls back to the manually-confirmed group DN and warns rather than aborting — this is exactly why the manual confirmation checkbox exists as a safety net.
-3. **Create each user** — For every user in the batch: sanitize and truncate the name to `SAM_MAX_LENGTH` (AD's SAM-account-name limit), build `altSecurityIdentities`, then call `CreateUser` (template `USER_TEMPLATE_NAME`) with `memberof` set to the resolved group DN, so the user is created already inside the group. ADManager Plus returns a generated password.
-4. **Email credentials** — Sends the new logon name + password to the user's email via SMTP. If the email fails to send, the password is instead shown once in the browser (via SSE) so the operator can deliver it manually — it is never shown again, and is never written to the audit log.
+3. **Create each user** — For every user in the batch: sanitize and truncate the name to `SAM_MAX_LENGTH` (AD's SAM-account-name limit), build `altSecurityIdentities`, then call `CreateUser` (template `USER_TEMPLATE_NAME`) with `memberof` set to the resolved group DN, so the user is created already inside the group. ADManager Plus returns the generated logon name (`sAMAccountName`) and password, and the AD/Exchange template auto-provisions a mailbox for the account at `<sAMAccountName>@<USER_MAIL_DOMAIN>` (e.g. `test910.Betconstruct@bcapps.cloud`).
+4. **Email credentials** — The new account's own mailbox (`<sAMAccountName>@<USER_MAIL_DOMAIN>`) can't be reached until its password is known, so credentials are never sent there. Instead they're emailed to the **contact email** entered in the form, with the message body containing both the new account address and the password — that's the one piece of information the recipient needs to actually log into their new mailbox/account. If the email fails to send, the account address and password are instead shown once in the browser (via SSE) so the operator can deliver them manually — never shown again, and never written to the audit log.
 5. **Record the outcome** — Every attempt (success, per-user failure, or validation failure) is written both to the file-based audit log (`logs/audit.log`) and to the SQLite `activity` table, which powers the admin/operator activity dashboards. Passwords are stripped before anything is logged.
 6. **Done** — A final summary event reports overall status: `success` (all users created and emailed), `partial` (some failed or had email errors), or `error` (all failed). The form only auto-resets on full success.
 
 Failures for one user in a batch don't abort the rest — the app keeps going and reports a per-user result.
+
+## Password Reset
+
+A separate, admin-only section (`/reset-password`) for resetting an existing AD user's password, for cases like a partner user forgetting their credentials. Unlike provisioning, the account being reset and the person who should receive the new password aren't necessarily the same mailbox, so the form takes **two independent addresses**:
+
+- **AD Account Email (`targetEmail`)** — the address ADManager Plus searches for via the AD `mail` attribute (e.g. the account's own `@bcapps.cloud` mailbox) to identify which user to reset.
+- **Send New Password To (`notifyEmail`)** — wherever the new password should actually be delivered (can be a different address, e.g. the partner's real contact email).
+
+Steps:
+
+1. **Validate** — both addresses must be well-formed emails.
+2. **Reset** — a strong random password is generated locally, then `adManager.resetPassword(targetEmail, password)` calls ADManager Plus's `ResetPwd` REST action, searching directly by the `mail` attribute. If no AD user has that email (or the `AuthToken` lacks permission), ADManager Plus returns a non-success result, which is surfaced as a clear **error** — the reset is never silently skipped.
+3. **Email** — on a successful reset, the new password is emailed to `notifyEmail`. If delivery fails, the password is shown once in the browser (same "copy now" pattern as provisioning) and the outcome is marked as `partial` rather than `success`.
+4. **Audit** — every attempt (success, email failure, or "no such user") is logged to `logs/audit.log` and the `activity` table (tagged `type: 'password_reset'`, with both `targetEmail` and `notifyEmail` recorded), and shows up in the Admin dashboard's activity feed as its own row type. Passwords are never persisted or logged.
+
+This is restricted to `admin` role because, unlike creating a brand-new account, resetting an *existing* user's password from just an email address is a more sensitive, account-takeover-adjacent operation.
 
 ## Routes / Endpoints
 
@@ -152,6 +168,13 @@ Failures for one user in a batch don't abort the rest — the app keeps going an
 | `POST /admin/users/:id/block` | Toggle a user's active/blocked status |
 | `POST /admin/users/:id/delete` | Delete a user record |
 
+### Password Reset (`src/routes/passwordReset.js`, mounted at `/reset-password`, admin-only)
+
+| Method & Path | Description |
+|---|---|
+| `GET /reset-password/` | Password reset form |
+| `GET /reset-password/stream` | SSE password-reset workflow (see above) |
+
 ## Configuration (Environment Variables)
 
 Copy `.env.example` to `.env` and fill these in. `.env` is gitignored — never commit real secrets.
@@ -175,6 +198,7 @@ Copy `.env.example` to `.env` and fill these in. `.env` is gitignored — never 
 | `GROUP_TYPE` | `Security` | AD group type for new groups |
 | `SAM_MAX_LENGTH` | `20` | Max length for generated SAM account names |
 | `DEDUPE_WINDOW_SECONDS` | `60` | Window during which an identical submission is rejected as a duplicate |
+| `USER_MAIL_DOMAIN` | `bcapps.cloud` | Domain used to build the new AD account's mailbox address (`<sAMAccountName>@<USER_MAIL_DOMAIN>`), shown in the credentials email alongside the password — not itself the send destination |
 | `SMTP_HOST` | — | SMTP server host for sending credential emails |
 | `SMTP_PORT` | `587` | SMTP port (use `465` with `SMTP_SECURE=true` if `587` is blocked on your network) |
 | `SMTP_SECURE` | `false` | `true` for implicit TLS (port 465), `false` for STARTTLS (port 587) |

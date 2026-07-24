@@ -44,7 +44,8 @@ router.get('/', requireAuth, function (req, res) {
     username: req.session.username,
     role: req.session.role,
     groupOu: process.env.GROUP_OU || '',
-    samMaxLength: process.env.SAM_MAX_LENGTH || '20'
+    samMaxLength: process.env.SAM_MAX_LENGTH || '20',
+    userMailDomain: process.env.USER_MAIL_DOMAIN || 'bcapps.cloud'
   });
 });
 

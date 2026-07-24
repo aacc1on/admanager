@@ -18,16 +18,28 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendCredentialsEmail(toEmail, password) {
+async function sendCredentialsEmail(toEmail, accountEmail, password) {
   const from = process.env.SMTP_FROM || 'no-reply@localhost';
   const t = getTransporter();
   await t.sendMail({
     from: from,
     to: toEmail,
     subject: 'Your account credentials',
-    text: 'Email: ' + toEmail + '\nPassword: ' + password,
-    html: '<p>Email: <b>' + toEmail + '</b></p><p>Password: <b>' + password + '</b></p>'
+    text: 'Email: ' + accountEmail + '\nPassword: ' + password,
+    html: '<p>Email: <b>' + accountEmail + '</b></p><p>Password: <b>' + password + '</b></p>'
   });
 }
 
-module.exports = { sendCredentialsEmail };
+async function sendPasswordResetEmail(toEmail, accountEmail, password) {
+  const from = process.env.SMTP_FROM || 'no-reply@localhost';
+  const t = getTransporter();
+  await t.sendMail({
+    from: from,
+    to: toEmail,
+    subject: 'Your password has been reset',
+    text: 'Email: ' + accountEmail + '\nNew password: ' + password,
+    html: '<p>Email: <b>' + accountEmail + '</b></p><p>New password: <b>' + password + '</b></p>'
+  });
+}
+
+module.exports = { sendCredentialsEmail, sendPasswordResetEmail };

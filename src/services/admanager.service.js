@@ -131,6 +131,31 @@ async function createUser(fields) {
   return { logonName: result['SAM Account Name'] || result.USER_NAME, userName: result.USER_NAME, password: result.USER_PASSWORD, raw: result };
 }
 
+async function resetPassword(mail, newPassword) {
+  assertConfigured();
+  const url = baseUrl('ResetPwd');
+  const inputFormat = JSON.stringify([{ mail: mail }]);
+  const params = commonParams({ passwordType: 'password', pwd: newPassword, inputFormat: inputFormat });
+  const { data } = await request({ method: 'post', url: url, params: params });
+  const results = Array.isArray(data) ? data : (data ? [data] : []);
+  const result = results[0];
+
+  if (!result) {
+    throw new Error('No AD user found for email ' + mail);
+  }
+  const statusMessage = result.statusMessage || result.STATUS_MESSAGE || '';
+  const statusOk = result.status === '1' || result.status === 1 || /success/i.test(statusMessage);
+  if (!statusOk) {
+    throw new Error('ResetPwd failed: ' + (statusMessage || 'unknown error (no AD user matched this email, or the AuthToken lacks permission)'));
+  }
+
+  return {
+    sAMAccountName: result.sAMAccountName,
+    userPrincipalName: result.userPrincipalName,
+    raw: result
+  };
+}
+
 async function addUserToGroup(sAMAccountName, groupName) {
   assertConfigured();
   const url = baseUrl('AddUsersToGroup');
@@ -144,4 +169,4 @@ async function addUserToGroup(sAMAccountName, groupName) {
   return result;
 }
 
-module.exports = { testConnection, searchGroup, createGroup, createUser, addUserToGroup };
+module.exports = { testConnection, searchGroup, createGroup, createUser, addUserToGroup, resetPassword };

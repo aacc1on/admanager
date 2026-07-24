@@ -43,6 +43,17 @@ db.exec(`
   )
 `);
 
+function ensureColumn(table, column, ddl) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some(function (c) { return c.name === column; })) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
+ensureColumn('activity', 'type', 'type TEXT');
+ensureColumn('activity', 'targetEmail', 'targetEmail TEXT');
+ensureColumn('activity', 'notifyEmail', 'notifyEmail TEXT');
+
 function ensureBootstrapAdmin() {
   const count = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
   if (count > 0) return;
@@ -111,8 +122,8 @@ function addActivity(entry) {
   const id = crypto.randomUUID();
   const timestamp = entry.timestamp || new Date().toISOString();
   db.prepare(
-    `INSERT INTO activity (id, timestamp, operator, administrator, partner, partnerId, givenName, username, userCreated, emailSent, status, executionTimeMs, error)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO activity (id, timestamp, operator, administrator, partner, partnerId, givenName, username, userCreated, emailSent, status, executionTimeMs, error, type, targetEmail, notifyEmail)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     timestamp,
@@ -126,7 +137,10 @@ function addActivity(entry) {
     entry.emailSent || null,
     entry.status || null,
     entry.executionTimeMs === undefined || entry.executionTimeMs === null ? null : entry.executionTimeMs,
-    entry.error || null
+    entry.error || null,
+    entry.type || 'provisioning',
+    entry.targetEmail || null,
+    entry.notifyEmail || null
   );
 }
 

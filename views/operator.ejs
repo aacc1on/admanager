@@ -65,9 +65,15 @@
             <% activity.forEach(function (a) { %>
               <tr>
                 <td><%= new Date(a.timestamp).toLocaleString() %></td>
-                <td><%= a.partner %> (<%= a.partnerId %>)</td>
-                <td><%= a.givenName || '—' %></td>
-                <td><%= a.username || '—' %></td>
+                <% if (a.type === 'password_reset') { %>
+                  <td>Password reset</td>
+                  <td><%= a.targetEmail || '—' %></td>
+                  <td><%= a.notifyEmail || '—' %></td>
+                <% } else { %>
+                  <td><%= a.partner %> (<%= a.partnerId %>)</td>
+                  <td><%= a.givenName || '—' %></td>
+                  <td><%= a.username || '—' %></td>
+                <% } %>
                 <td><span class="badge badge-status-<%= a.status %>"><%= a.status %></span></td>
                 <td><%= a.executionTimeMs ? a.executionTimeMs + ' ms' : '—' %></td>
               </tr>

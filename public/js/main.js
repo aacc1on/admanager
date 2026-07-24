@@ -176,7 +176,8 @@ document.getElementById('provisionForm').addEventListener('submit', function (e)
       box.className = 'credentials-box';
       box.innerHTML =
         '<strong>Send these credentials manually (copy now, they will not be shown again)</strong>' +
-        '<div>Email: <code>' + data.email + '</code></div>' +
+        '<div>Send to: <code>' + data.notifyEmail + '</code></div>' +
+        '<div>Account email: <code>' + data.accountEmail + '</code></div>' +
         '<div>Password: <code>' + data.password + '</code></div>';
       statusList.appendChild(box);
       return;

@@ -32,4 +32,17 @@ function validateProvisionInput(data) {
   return schema.validate(data, { abortEarly: false, stripUnknown: true });
 }
 
-module.exports = { validateProvisionInput };
+const resetPasswordSchema = Joi.object({
+  targetEmail: Joi.string().trim().email().required().messages({
+    '*': 'The AD account email to reset is required and must be a valid email address'
+  }),
+  notifyEmail: Joi.string().trim().email().required().messages({
+    '*': 'The email address to send the new password to is required and must be a valid email address'
+  })
+});
+
+function validateResetPasswordInput(data) {
+  return resetPasswordSchema.validate(data, { abortEarly: false, stripUnknown: true });
+}
+
+module.exports = { validateProvisionInput, validateResetPasswordInput };

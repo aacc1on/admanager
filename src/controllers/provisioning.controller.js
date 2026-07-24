@@ -8,6 +8,7 @@ const { audit, logger } = require('../utils/logger');
 const store = require('../utils/store');
 
 const GROUP_OU = process.env.GROUP_OU;
+const USER_MAIL_DOMAIN = process.env.USER_MAIL_DOMAIN || 'bcapps.cloud';
 
 function sseSend(res, event) {
   res.write('data: ' + JSON.stringify(event) + '\n\n');
@@ -168,12 +169,18 @@ async function streamProvisioning(req, res) {
           altSecurityIdentities: altSecurityIdentities
         });
 
+        // The AD/Exchange template auto-provisions this address for the new account;
+        // it's not reachable by the new user until they know the password below.
+        const accountEmail = createdUser.logonName + '@' + USER_MAIL_DOMAIN;
+
         auditEntry.userCreated = 'Yes';
         auditEntry.username = createdUser.logonName;
-        sseSend(res, { step: step, status: 'done', message: 'User created (' + entry.email + '), added to group via memberof' });
+        auditEntry.targetEmail = accountEmail;
+        auditEntry.notifyEmail = entry.email;
+        sseSend(res, { step: step, status: 'done', message: 'User created (' + accountEmail + '), added to group via memberof' });
 
         try {
-          await sendCredentialsEmail(entry.email, createdUser.password);
+          await sendCredentialsEmail(entry.email, accountEmail, createdUser.password);
           auditEntry.emailSent = 'Yes';
           auditEntry.status = 'Completed';
           successCount++;
@@ -191,7 +198,8 @@ async function streamProvisioning(req, res) {
             step: 'credentials',
             status: 'warn',
             message: 'Credentials to send manually',
-            email: entry.email,
+            accountEmail: accountEmail,
+            notifyEmail: entry.email,
             password: createdUser.password
           });
         }
