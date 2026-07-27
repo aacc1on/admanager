@@ -152,6 +152,16 @@ function getActivityByOperator(username) {
   return db.prepare('SELECT * FROM activity WHERE operator = ? ORDER BY timestamp DESC').all(username);
 }
 
+function getKnownGroups() {
+  return db.prepare(
+    `SELECT partner, partnerId, MAX(timestamp) AS lastUsed, COUNT(*) AS userCount
+     FROM activity
+     WHERE partner IS NOT NULL AND partnerId IS NOT NULL
+     GROUP BY lower(partner), lower(partnerId)
+     ORDER BY lastUsed DESC`
+  ).all();
+}
+
 function getStats() {
   const activity = getActivity();
   const byOperator = {};
@@ -209,5 +219,6 @@ module.exports = {
   addActivity,
   getActivity,
   getActivityByOperator,
-  getStats
+  getStats,
+  getKnownGroups
 };

@@ -1,0 +1,90 @@
+<!-- File: views/groups.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Groups — User Provisioning</title>
+  <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <main class="container admin-container" data-group-template="<%= groupTemplateName %>" data-domain-name="<%= domainName %>">
+    <header class="top-bar">
+      <div class="brand-row-inline">
+        <img class="brand-logo-sm" src="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" alt="BetConstruct logo" />
+        <h1>Groups</h1>
+      </div>
+      <div class="top-bar-actions">
+        <a href="/" class="link-button">Back to form</a>
+        <a href="/admin" class="link-button">Admin Panel</a>
+        <a href="/reset-password" class="link-button">Password Reset</a>
+        <form method="POST" action="/logout" class="logout-form">
+          <span class="signed-in-as">Signed in as <strong><%= username %></strong></span>
+          <button type="submit" class="link-button">Sign out</button>
+        </form>
+      </div>
+    </header>
+
+    <div class="notice notice-info" id="groupApiNotice">
+      ADManager Plus does not expose a group-listing REST API on this server, so the list below is built from
+      groups this app has previously provisioned users into — not a live query against AD.
+    </div>
+
+    <section class="panel">
+      <div class="panel-header">Find a group</div>
+      <div class="panel-body">
+        <div class="label-with-action">
+          <label class="grow">Search
+            <input type="text" id="groupSearchInput" placeholder="Search by partner name or partner ID..." autocomplete="off" />
+          </label>
+          <button type="button" id="refreshGroupsBtn" class="secondary-btn">Refresh</button>
+        </div>
+        <div class="group-list" id="groupList"></div>
+        <span class="hint" id="groupListEmpty" hidden>No groups found yet — provision a user for a partner first, or create a new group below.</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <button type="button" id="toggleCreateGroupBtn" class="link-button">+ Create a new group</button>
+      </div>
+      <div class="panel-body" id="createGroupPanel" hidden>
+        <label>Partner Name
+          <input type="text" id="newPartnerName" placeholder="e.g. Betconstruct" />
+        </label>
+        <label>Partner ID
+          <input type="text" id="newPartnerId" placeholder="e.g. 900" />
+        </label>
+        <div class="group-preview" id="newGroupPreview" hidden>
+          <span class="group-preview-label">Create this group in ADManager Plus (Create Single Group)</span>
+          <div class="preview-row"><span class="preview-key">Group Name</span><code id="newGroupNameValue">—</code></div>
+          <div class="preview-row"><span class="preview-key">GroupName (Pre-Windows 2000)</span><code id="newGroupNamePre2000">—</code></div>
+          <div class="preview-row"><span class="preview-key">Selected Template</span><code><%= groupTemplateName %></code></div>
+          <div class="preview-row"><span class="preview-key">Selected Domain</span><code><%= domainName %></code></div>
+          <span class="hint">Group creation via API is not available on this ADManager Plus server — open ADManager Plus, choose "Create Single Group", pick the <%= groupTemplateName %> template and enter the values above. The group will appear in the search list here after the first user is provisioned into it.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="membersPanel" hidden>
+      <div class="panel-header" id="membersPanelHeader">Group members</div>
+      <div class="panel-body no-pad">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="membersTableBody"></tbody>
+        </table>
+        <span class="hint" id="membersEmpty" style="display:block;padding:1rem;" hidden>No AD users found for this group.</span>
+      </div>
+    </section>
+  </main>
+  <script src="/js/groups.js"></script>
+</body>
+</html>

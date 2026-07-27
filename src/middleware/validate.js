@@ -45,4 +45,13 @@ function validateResetPasswordInput(data) {
   return resetPasswordSchema.validate(data, { abortEarly: false, stripUnknown: true });
 }
 
-module.exports = { validateProvisionInput, validateResetPasswordInput };
+const toggleUserSchema = Joi.object({
+  mail: Joi.string().trim().email().required(),
+  enabled: Joi.boolean().required()
+});
+
+function validateToggleUserInput(data) {
+  return toggleUserSchema.validate(data, { abortEarly: false, stripUnknown: true });
+}
+
+module.exports = { validateProvisionInput, validateResetPasswordInput, validateToggleUserInput };

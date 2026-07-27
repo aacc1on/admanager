@@ -49,6 +49,89 @@ function updateGroupPreview() {
 partnerIdInput.addEventListener('input', updateGroupPreview);
 partnerNameInput.addEventListener('input', updateGroupPreview);
 
+// --- Quick-select from previously used groups ---
+var groupQuickSearch = document.getElementById('groupQuickSearch');
+var groupQuickList = document.getElementById('groupQuickList');
+var knownGroups = [];
+
+function closeGroupQuickList() {
+  groupQuickList.hidden = true;
+  groupQuickList.innerHTML = '';
+}
+
+function renderGroupQuickList() {
+  var text = groupQuickSearch.value.toLowerCase().trim();
+  // With no search text yet, show every known group (like a normal dropdown);
+  // once the user types, narrow it down to matches.
+  var filtered = !text
+    ? knownGroups
+    : knownGroups.filter(function (g) {
+      return (g.partner || '').toLowerCase().indexOf(text) !== -1 ||
+        (g.partnerId || '').toLowerCase().indexOf(text) !== -1 ||
+        (g.groupName || '').toLowerCase().indexOf(text) !== -1;
+    });
+
+  if (!filtered.length) {
+    closeGroupQuickList();
+    return;
+  }
+
+  groupQuickList.innerHTML = '';
+  groupQuickList.hidden = false;
+  filtered.forEach(function (g) {
+    var row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'group-list-item';
+    row.innerHTML =
+      '<span class="group-list-name">' + g.partner + ' <span class="hint">(#' + g.partnerId + ')</span></span>' +
+      '<code class="group-list-code">' + g.groupName + '</code>';
+    row.addEventListener('mousedown', function (e) {
+      // mousedown (not click) so this fires before the input's blur hides the list
+      e.preventDefault();
+      partnerIdInput.value = g.partnerId;
+      partnerNameInput.value = g.partner;
+      groupQuickSearch.value = '';
+      closeGroupQuickList();
+      updateGroupPreview();
+    });
+    groupQuickList.appendChild(row);
+  });
+}
+
+groupQuickSearch.addEventListener('input', renderGroupQuickList);
+groupQuickSearch.addEventListener('focus', renderGroupQuickList);
+groupQuickSearch.addEventListener('blur', closeGroupQuickList);
+groupQuickSearch.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    closeGroupQuickList();
+    groupQuickSearch.blur();
+  }
+});
+
+var refreshGroupsBtn = document.getElementById('refreshGroupsBtn');
+
+function loadKnownGroups() {
+  return fetch('/groups/api/list')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      knownGroups = data.groups || [];
+      // Keep an already-open dropdown in sync with the freshly fetched list.
+      if (!groupQuickList.hidden) renderGroupQuickList();
+    })
+    .catch(function () { /* quick-select is a convenience feature; ignore failures */ });
+}
+
+refreshGroupsBtn.addEventListener('click', function () {
+  refreshGroupsBtn.disabled = true;
+  refreshGroupsBtn.textContent = 'Refreshing...';
+  loadKnownGroups().finally(function () {
+    refreshGroupsBtn.disabled = false;
+    refreshGroupsBtn.textContent = 'Refresh';
+  });
+});
+
+loadKnownGroups();
+
 // --- Submit button gated on manual group confirmation ---
 function updateSubmitState() {
   submitBtn.disabled = !groupConfirmed.checked;
@@ -192,6 +275,8 @@ document.getElementById('provisionForm').addEventListener('submit', function (e)
         groupPreview.hidden = true;
         resetUserRows();
         updateSubmitState();
+        // We're the ones who just changed group membership — refresh the known-groups list.
+        loadKnownGroups();
       }
       return;
     }

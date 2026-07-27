@@ -156,6 +156,28 @@ async function resetPassword(mail, newPassword) {
   };
 }
 
+async function listAllUsers() {
+  assertConfigured();
+  const url = baseUrl('SearchUser');
+  const params = commonParams({ range: 500, startIndex: 1 });
+  const { data } = await request({ method: 'get', url: url, params: params });
+  return Array.isArray(data && data.UsersList) ? data.UsersList : [];
+}
+
+async function setUserEnabled(mail, enabled) {
+  assertConfigured();
+  const action = enabled ? 'EnableUser' : 'DisableUser';
+  const url = baseUrl(action);
+  const inputFormat = JSON.stringify([{ mail: mail }]);
+  const params = commonParams({ inputFormat: inputFormat });
+  const { data } = await request({ method: 'post', url: url, params: params });
+  const result = Array.isArray(data) ? data[0] : data;
+  if (!result || String(result.status) !== '1') {
+    throw new Error(action + ' failed: ' + ((result && result.statusMessage) || 'անհասկանալի սխալ'));
+  }
+  return result;
+}
+
 async function addUserToGroup(sAMAccountName, groupName) {
   assertConfigured();
   const url = baseUrl('AddUsersToGroup');
@@ -169,4 +191,4 @@ async function addUserToGroup(sAMAccountName, groupName) {
   return result;
 }
 
-module.exports = { testConnection, searchGroup, createGroup, createUser, addUserToGroup, resetPassword };
+module.exports = { testConnection, searchGroup, createGroup, createUser, addUserToGroup, resetPassword, listAllUsers, setUserEnabled };

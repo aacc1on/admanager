@@ -98,6 +98,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .notice { border-radius: 6px; padding: 0.6rem 0.9rem; font-size: 0.85rem; margin-bottom: 1.25rem; }
 .notice-success { background: #eafaf0; color: #1a7f37; border: 1px solid #b8ecc8; }
 .notice-error { background: #ffeef0; color: #cf222e; border: 1px solid #ffc1c9; }
+.notice-info { background: #eef6fd; color: #0a5289; border: 1px solid #bfe0f7; }
 
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1.25rem; }
 .stat-card { background: var(--brand-light); border: 1px solid var(--brand-border); border-radius: 8px; padding: 0.9rem; text-align: center; }
@@ -128,6 +129,21 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .badge-operator { background: #eef1f5; color: #445; }
 .badge-active { background: #eafaf0; color: #1a7f37; }
 .badge-blocked { background: #ffeef0; color: #cf222e; }
+.badge-disabled { background: #ffeef0; color: #cf222e; }
+
+.label-with-action { display: flex; align-items: flex-end; gap: 0.6rem; }
+.label-with-action label.grow { flex: 1; }
+.label-with-action .secondary-btn { flex-shrink: 0; margin-bottom: 1rem; }
+
+.group-list { display: flex; flex-direction: column; gap: 0.4rem; max-height: 260px; overflow-y: auto; margin-top: 0.75rem; }
+.group-list-item { display: flex; align-items: center; gap: 0.75rem; width: 100%; text-align: left; background: #fbfbfc; border: 1px solid #e4e6ea; border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; color: #333; cursor: pointer; }
+.group-list-item:hover:not(.selected) { background: var(--brand-light); }
+.group-list-item.selected { background: var(--brand-light); border-color: var(--brand); }
+.group-list-name { flex: 1; }
+.group-list-code { font-size: 0.78rem; color: var(--brand-dark); background: #fff; border: 1px solid #eaeaea; border-radius: 4px; padding: 0.1rem 0.4rem; }
+
+.preview-row { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.3rem; font-size: 0.85rem; }
+.preview-key { color: var(--brand-dark); font-weight: 600; min-width: 220px; }
 .badge-status-Completed { background: #eafaf0; color: #1a7f37; }
 .badge-status-CompletedWithEmailError { background: #fff6e0; color: #9a6700; }
 .badge-status-Failed { background: #ffeef0; color: #cf222e; }
