@@ -10,6 +10,10 @@ A Node.js/Express web tool that automates creating Active Directory user account
 - [Project Structure](#project-structure)
 - [Authentication & Roles](#authentication--roles)
 - [How Provisioning Works](#how-provisioning-works)
+- [Password Reset](#password-reset)
+- [Groups](#groups)
+- [Directory](#directory)
+- [AD Data Import (CSV)](#ad-data-import-csv)
 - [Routes / Endpoints](#routes--endpoints)
 - [Configuration (Environment Variables)](#configuration-environment-variables)
 - [Running with Docker](#running-with-docker)
@@ -86,23 +90,33 @@ src/
   routes/
     index.js                      Login, home page, /test-connection, /provision/stream (SSE)
     admin.js                      /admin subrouter: user management, stats, per-operator activity
+    passwordReset.js              /reset-password subrouter: admin-only AD password reset (SSE)
+    groups.js                     /groups subrouter: browse imported AD groups, view/enable/disable members
+    directory.js                  /directory subrouter: search imported AD users, enable/disable accounts
   controllers/
     provisioning.controller.js    Core SSE-driven provisioning workflow
+    passwordReset.controller.js   SSE-driven password-reset workflow
+    groups.controller.js          Group search (from imported data), live member lookup, enable/disable
+    directory.controller.js       AD user search (from imported data) and enable/disable
   middleware/
     auth.js                       requireAuth / requireAdmin session guards
-    validate.js                   Joi schema for provisioning form input
+    validate.js                   Joi schemas for provisioning, password reset, and enable/disable input
   services/
     admanager.service.js          ADManager Plus REST API client
     mail.service.js                nodemailer wrapper for sending credential emails
+  scripts/
+    import-ad-export.js           One-off/re-runnable importer for ADManager Plus CSV exports (groups & users)
   utils/
-    adHelpers.js                  AD-safe string sanitizing/truncation, group name/DN builders
+    adHelpers.js                  AD-safe string sanitizing/truncation, group name/DN builders, group-name parsing
     dedupe.js                     Short-lived in-memory cache to block duplicate/double-click submits
     logger.js                     winston logger + audit() helper (strips passwords before logging)
-    store.js                      SQLite-backed app users & activity history (also the local login store)
-views/                           login.ejs, index.ejs (provisioning form), admin.ejs, operator.ejs
-public/                          css/style.css, js/main.js (form logic + SSE consumer)
-data/                            app.db (+ -shm/-wal) — gitignored
+    store.js                      SQLite-backed app users, activity history, and imported AD groups/users
+views/                           login.ejs, index.ejs (provisioning form), admin.ejs, operator.ejs,
+                                 reset-password.ejs, groups.ejs, directory.ejs
+public/                          css/style.css, js/main.js, js/reset-password.js, js/groups.js, js/directory.js
+data/                            app.db (+ -shm/-wal), imports/ (ad_groups.csv, ad_users.csv) — gitignored
 logs/                            audit.log, error.log — gitignored
+assets/                          Windows-App-Guide.pdf — end-user setup guide
 ```
 
 ## Authentication & Roles
@@ -145,6 +159,37 @@ Steps:
 
 This is restricted to `admin` role because, unlike creating a brand-new account, resetting an *existing* user's password from just an email address is a more sensitive, account-takeover-adjacent operation.
 
+## Groups
+
+An admin-only page (`/groups`) for browsing existing partner groups instead of guessing group names by hand:
+
+- **Search** hits `GET /groups/api/search-all`, which queries the `ad_groups` table populated by the [CSV import](#ad-data-import-csv) — ADManager Plus on this deployment has no live "list/search all groups" REST endpoint, so the searchable list is a point-in-time snapshot, refreshed by re-running the importer. Group names are parsed back into `{ partner, partnerId }` via `parseGroupName()` (the inverse of the provisioning form's `<PartnerName>-RDS-<PartnerId>` naming convention).
+- Picking a group calls `GET /groups/api/members`, which *does* hit ADManager Plus live (`listAllUsers`, filtered by the group's partner name) — so members and their enabled/disabled state are always current, even though the group list itself is a snapshot.
+- Each member row can be enabled/disabled via `POST /groups/api/toggle`, which calls ADManager Plus's `EnableUser`/`DisableUser` REST actions by email and is fully audited (`type: 'group_toggle'`).
+- A "Create a new group" panel builds and previews the group name/pre-Windows-2000 name for the operator to enter manually in ADManager Plus, since group creation via API isn't available on this ADManager Plus server either — this only affects the standalone Groups page; the main provisioning form still creates groups via `CreateGroup` (see [How Provisioning Works](#how-provisioning-works)) where that API is supported.
+- The group **search-all** endpoint (only) is available to any authenticated operator, not just admins — it's read-only and non-sensitive, and lets operators look up a partner's existing group name while filling out the provisioning form instead of retyping it from memory.
+
+## Directory
+
+An admin-only page (`/directory`) for searching the full imported AD user list and toggling accounts:
+
+- Search (`GET /directory/api/search`) queries the `ad_users` table (name, SAM account, company, AGP, or email) — again sourced from the [CSV import](#ad-data-import-csv), not a live AD query, so it reflects the last import rather than the current instant.
+- Each result can be enabled/disabled via `POST /directory/api/toggle`, which calls ADManager Plus live (`EnableUser`/`DisableUser` by email) and is fully audited (`type: 'directory_toggle'`); the local snapshot's `account_status` is updated immediately after a successful toggle so the UI stays in sync without waiting for the next import.
+- Accounts with no mailbox (`Email Address` = `-` in the export) can't be toggled through ADManager Plus and are shown status-only.
+- The page header shows import freshness (user/group counts and last-imported timestamp) so admins know how stale the snapshot might be.
+
+## AD Data Import (CSV)
+
+Both [Groups](#groups) and [Directory](#directory) search against a local snapshot of AD, because this ADManager Plus deployment doesn't expose live "list/search all groups" or "list/search all users" REST endpoints. That snapshot is populated by re-runnable script `src/scripts/import-ad-export.js`:
+
+```bash
+node src/scripts/import-ad-export.js
+```
+
+- Drop a fresh ADManager Plus CSV export at `data/imports/ad_groups.csv` and/or `data/imports/ad_users.csv`, then run the script — rows are **upserted** by SAM Account Name into the SQLite `ad_groups` / `ad_users` tables, so re-running it with a newer export updates existing rows instead of duplicating them. Either file may be absent; the script skips whichever one it doesn't find.
+- Re-run it whenever the underlying AD data changes meaningfully — there's no automatic refresh or schedule.
+- `data/imports/` is covered by the existing `data/*` gitignore rule, so exports aren't committed.
+
 ## Routes / Endpoints
 
 ### Public / session (`src/routes/index.js`)
@@ -174,6 +219,23 @@ This is restricted to `admin` role because, unlike creating a brand-new account,
 |---|---|
 | `GET /reset-password/` | Password reset form |
 | `GET /reset-password/stream` | SSE password-reset workflow (see above) |
+
+### Groups (`src/routes/groups.js`, mounted at `/groups`)
+
+| Method & Path | Auth | Description |
+|---|---|---|
+| `GET /groups/api/search-all` | operator+ | Search imported AD groups by partner name/ID/SAM account name |
+| `GET /groups/` | admin | Groups browser page |
+| `GET /groups/api/members` | admin | Live AD lookup of a group's members by partner name |
+| `POST /groups/api/toggle` | admin | Enable/disable a group member's AD account |
+
+### Directory (`src/routes/directory.js`, mounted at `/directory`, admin-only)
+
+| Method & Path | Description |
+|---|---|
+| `GET /directory/` | AD user directory/search page |
+| `GET /directory/api/search` | Search imported AD users by name, SAM account, company, AGP, or email |
+| `POST /directory/api/toggle` | Enable/disable an AD account |
 
 ## Configuration (Environment Variables)
 
@@ -231,3 +293,6 @@ docker compose up -d --build
 - Some internal error messages in `admanager.service.js` and `mail.service.js` are written in Armenian; the rest of the codebase (UI, comments, SSE messages) is in English.
 - All app users share a single ADManager Plus `AUTH_TOKEN` — app roles (`admin`/`operator`) control access to this tool, not to Active Directory itself.
 - Generated passwords are only ever shown once (in the browser, and only if the credential email fails to send) — they are never persisted or logged in plaintext.
+- This ADManager Plus deployment has no live "list/search all groups or users" REST endpoint, so the [Groups](#groups) and [Directory](#directory) pages search a local snapshot populated by [the CSV importer](#ad-data-import-csv) — it can go stale until someone re-runs the import. Enable/disable actions on those pages, and group *members* on the Groups page, still call ADManager Plus live.
+- Group creation via API is also unavailable on this ADManager Plus server for the standalone Groups page's "create a new group" flow — it only builds a name preview for manual entry. The main provisioning form's own group creation (`CreateGroup`) is unaffected and works as described in [How Provisioning Works](#how-provisioning-works).
+- `assets/Windows-App-Guide.pdf` is an end-user setup guide, not part of the app's runtime.
