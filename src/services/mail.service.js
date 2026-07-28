@@ -3,6 +3,12 @@ const nodemailer = require('nodemailer');
 
 let transporter = null;
 
+const LOGO_URL = 'https://www.softconstruct.com/fs/userFiles-v2/softconstruct-18748504/images/logo.svg?v=1762875358';
+const BRAND = '#a61e64';
+const BRAND_DARK = '#7d1750';
+const BRAND_LIGHT = '#fbeaf3';
+const BRAND_BORDER = '#eec2da';
+
 function getTransporter() {
   if (transporter) return transporter;
   const { SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS } = process.env;
@@ -18,27 +24,114 @@ function getTransporter() {
   return transporter;
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Table-based layout with inline styles so the email renders consistently
+// across Gmail, Outlook, and other mail clients.
+function renderEmailHtml({ heading, intro, rows, footerNote }) {
+  const rowsHtml = rows.map(function (row) {
+    return (
+      '<tr>' +
+        '<td style="padding:6px 0; font-size:13px; color:' + BRAND_DARK + '; font-weight:600; width:140px; vertical-align:top;">' + escapeHtml(row.label) + '</td>' +
+        '<td style="padding:6px 0; font-size:14px; color:#1f2430; font-family:Consolas,Menlo,monospace;">' + escapeHtml(row.value) + '</td>' +
+      '</tr>'
+    );
+  }).join('');
+
+  return (
+    '<!doctype html>' +
+    '<html lang="en">' +
+    '<head>' +
+      '<meta charset="utf-8" />' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
+      '<title>' + escapeHtml(heading) + '</title>' +
+    '</head>' +
+    '<body style="margin:0; padding:0; background-color:' + BRAND_LIGHT + '; font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(160deg,' + BRAND_DARK + ' 0%,' + BRAND + ' 45%,#c24a83 100%); background-color:' + BRAND + '; padding:32px 16px;">' +
+        '<tr>' +
+          '<td align="center">' +
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.25);">' +
+
+              // Header
+              '<tr>' +
+                '<td align="center" style="padding:32px 24px 20px; background-color:' + BRAND_LIGHT + ';">' +
+                  '<img src="' + LOGO_URL + '" alt="SoftConstruct" width="180" style="display:block; max-width:180px; height:auto; margin:0 auto;" />' +
+                '</td>' +
+              '</tr>' +
+
+              // Body
+              '<tr>' +
+                '<td style="padding:32px 32px 8px;">' +
+                  '<h1 style="margin:0 0 12px; font-size:20px; line-height:1.3; color:#1f2430;">' + escapeHtml(heading) + '</h1>' +
+                  '<p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#555;">' + escapeHtml(intro) + '</p>' +
+                  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' + BRAND_LIGHT + '; border:1px solid ' + BRAND_BORDER + '; border-radius:8px; padding:16px 18px;">' +
+                    rowsHtml +
+                  '</table>' +
+                  '<p style="margin:24px 0 0; font-size:12.5px; line-height:1.6; color:#9098a3;">' + escapeHtml(footerNote) + '</p>' +
+                '</td>' +
+              '</tr>' +
+
+              // Footer
+              '<tr>' +
+                '<td align="center" style="padding:20px 24px 28px;">' +
+                  '<p style="margin:0; font-size:11.5px; color:#b3b8c2;">This is an automated message, please do not reply.</p>' +
+                '</td>' +
+              '</tr>' +
+
+            '</table>' +
+          '</td>' +
+        '</tr>' +
+      '</table>' +
+    '</body>' +
+    '</html>'
+  );
+}
+
 async function sendCredentialsEmail(toEmail, accountEmail, password) {
   const from = process.env.SMTP_FROM || 'no-reply@localhost';
   const t = getTransporter();
+  const html = renderEmailHtml({
+    heading: 'Your account has been created',
+    intro: 'An account has been provisioned for you. Use the credentials below to sign in, and make sure to change your password after your first login.',
+    rows: [
+      { label: 'Email', value: accountEmail },
+      { label: 'Password', value: password }
+    ],
+    footerNote: 'If you were not expecting this email, please contact your administrator.'
+  });
   await t.sendMail({
     from: from,
     to: toEmail,
     subject: 'Your account credentials',
     text: 'Email: ' + accountEmail + '\nPassword: ' + password,
-    html: '<p>Email: <b>' + accountEmail + '</b></p><p>Password: <b>' + password + '</b></p>'
+    html: html
   });
 }
 
 async function sendPasswordResetEmail(toEmail, accountEmail, password) {
   const from = process.env.SMTP_FROM || 'no-reply@localhost';
   const t = getTransporter();
+  const html = renderEmailHtml({
+    heading: 'Your password has been reset',
+    intro: 'The password for your account has just been reset. Use the new password below to sign in, and change it once you are logged in.',
+    rows: [
+      { label: 'Email', value: accountEmail },
+      { label: 'New password', value: password }
+    ],
+    footerNote: 'If you did not request this change, please contact your administrator immediately.'
+  });
   await t.sendMail({
     from: from,
     to: toEmail,
     subject: 'Your password has been reset',
     text: 'Email: ' + accountEmail + '\nNew password: ' + password,
-    html: '<p>Email: <b>' + accountEmail + '</b></p><p>New password: <b>' + password + '</b></p>'
+    html: html
   });
 }
 
