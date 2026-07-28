@@ -1,5 +1,6 @@
 // File: src/services/mail.service.js
 const nodemailer = require('nodemailer');
+const path = require('path');
 
 let transporter = null;
 
@@ -8,6 +9,11 @@ const BRAND = '#a61e64';
 const BRAND_DARK = '#7d1750';
 const BRAND_LIGHT = '#fbeaf3';
 const BRAND_BORDER = '#eec2da';
+
+const GUIDE_ATTACHMENT = {
+  filename: 'Windows App Guide - Information Security.pdf',
+  path: path.join(__dirname, '..', '..', 'assets', 'Windows-App-Guide.pdf')
+};
 
 function getTransporter() {
   if (transporter) return transporter;
@@ -110,7 +116,8 @@ async function sendCredentialsEmail(toEmail, accountEmail, password) {
     to: toEmail,
     subject: 'Your account credentials',
     text: 'Email: ' + accountEmail + '\nPassword: ' + password,
-    html: html
+    html: html,
+    attachments: [GUIDE_ATTACHMENT]
   });
 }
 
@@ -131,7 +138,8 @@ async function sendPasswordResetEmail(toEmail, accountEmail, password) {
     to: toEmail,
     subject: 'Your password has been reset',
     text: 'Email: ' + accountEmail + '\nNew password: ' + password,
-    html: html
+    html: html,
+    attachments: [GUIDE_ATTACHMENT]
   });
 }
 

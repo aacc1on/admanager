@@ -54,6 +54,30 @@ ensureColumn('activity', 'type', 'type TEXT');
 ensureColumn('activity', 'targetEmail', 'targetEmail TEXT');
 ensureColumn('activity', 'notifyEmail', 'notifyEmail TEXT');
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ad_groups (
+    sam_account_name TEXT PRIMARY KEY,
+    group_type TEXT,
+    group_scope TEXT,
+    domain_name TEXT,
+    imported_at TEXT NOT NULL
+  )
+`);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ad_users (
+    sam_account_name TEXT PRIMARY KEY,
+    display_name TEXT,
+    company TEXT,
+    agp TEXT,
+    account_status TEXT,
+    common_name TEXT,
+    email_address TEXT,
+    when_created TEXT,
+    when_changed TEXT,
+    imported_at TEXT NOT NULL
+  )
+`);
+
 function ensureBootstrapAdmin() {
   const count = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
   if (count > 0) return;
@@ -152,14 +176,113 @@ function getActivityByOperator(username) {
   return db.prepare('SELECT * FROM activity WHERE operator = ? ORDER BY timestamp DESC').all(username);
 }
 
-function getKnownGroups() {
+function searchAdGroups(query, limit) {
+  const q = '%' + (query || '').trim() + '%';
+  const cap = Math.min(limit || 50, 200);
   return db.prepare(
-    `SELECT partner, partnerId, MAX(timestamp) AS lastUsed, COUNT(*) AS userCount
-     FROM activity
-     WHERE partner IS NOT NULL AND partnerId IS NOT NULL
-     GROUP BY lower(partner), lower(partnerId)
-     ORDER BY lastUsed DESC`
-  ).all();
+    `SELECT * FROM ad_groups
+     WHERE sam_account_name LIKE ? COLLATE NOCASE
+     ORDER BY sam_account_name ASC
+     LIMIT ?`
+  ).all(q, cap);
+}
+
+function upsertAdGroups(rows) {
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO ad_groups (sam_account_name, group_type, group_scope, domain_name, imported_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(sam_account_name) DO UPDATE SET
+      group_type = excluded.group_type,
+      group_scope = excluded.group_scope,
+      domain_name = excluded.domain_name,
+      imported_at = excluded.imported_at
+  `);
+  db.exec('BEGIN');
+  try {
+    rows.forEach(function (r) {
+      stmt.run(r.samAccountName, r.groupType || null, r.groupScope || null, r.domainName || null, now);
+    });
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+  return rows.length;
+}
+
+function upsertAdUsers(rows) {
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO ad_users (sam_account_name, display_name, company, agp, account_status, common_name, email_address, when_created, when_changed, imported_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(sam_account_name) DO UPDATE SET
+      display_name = excluded.display_name,
+      company = excluded.company,
+      agp = excluded.agp,
+      account_status = excluded.account_status,
+      common_name = excluded.common_name,
+      email_address = excluded.email_address,
+      when_created = excluded.when_created,
+      when_changed = excluded.when_changed,
+      imported_at = excluded.imported_at
+  `);
+  db.exec('BEGIN');
+  try {
+    rows.forEach(function (r) {
+      stmt.run(
+        r.samAccountName,
+        r.displayName || null,
+        r.company || null,
+        r.agp || null,
+        r.accountStatus || null,
+        r.commonName || null,
+        r.emailAddress || null,
+        r.whenCreated || null,
+        r.whenChanged || null,
+        now
+      );
+    });
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+  return rows.length;
+}
+
+function searchAdUsers(query, limit) {
+  const q = '%' + (query || '').trim() + '%';
+  const cap = Math.min(limit || 50, 200);
+  return db.prepare(`
+    SELECT * FROM ad_users
+    WHERE display_name LIKE ? COLLATE NOCASE
+       OR sam_account_name LIKE ? COLLATE NOCASE
+       OR company LIKE ? COLLATE NOCASE
+       OR agp LIKE ? COLLATE NOCASE
+       OR email_address LIKE ? COLLATE NOCASE
+    ORDER BY display_name ASC
+    LIMIT ?
+  `).all(q, q, q, q, q, cap);
+}
+
+function getAdUserBySam(samAccountName) {
+  return db.prepare('SELECT * FROM ad_users WHERE sam_account_name = ?').get(samAccountName) || null;
+}
+
+function setAdUserStatus(samAccountName, status) {
+  db.prepare('UPDATE ad_users SET account_status = ? WHERE sam_account_name = ?').run(status, samAccountName);
+}
+
+function getAdImportStats() {
+  const groups = db.prepare('SELECT COUNT(*) AS c, MAX(imported_at) AS lastImportedAt FROM ad_groups').get();
+  const users = db.prepare('SELECT COUNT(*) AS c, MAX(imported_at) AS lastImportedAt FROM ad_users').get();
+  return {
+    groupCount: groups.c,
+    groupsImportedAt: groups.lastImportedAt,
+    userCount: users.c,
+    usersImportedAt: users.lastImportedAt
+  };
 }
 
 function getStats() {
@@ -220,5 +343,11 @@ module.exports = {
   getActivity,
   getActivityByOperator,
   getStats,
-  getKnownGroups
+  upsertAdGroups,
+  upsertAdUsers,
+  searchAdUsers,
+  searchAdGroups,
+  getAdUserBySam,
+  setAdUserStatus,
+  getAdImportStats
 };

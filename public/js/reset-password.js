@@ -1,4 +1,65 @@
 // File: public/js/reset-password.js
+(function () {
+  var userQuickSearch = document.getElementById('userQuickSearch');
+  var userQuickList = document.getElementById('userQuickList');
+  var targetEmailInput = document.getElementById('targetEmail');
+  var searchDebounce = null;
+
+  function closeUserQuickList() {
+    userQuickList.hidden = true;
+    userQuickList.innerHTML = '';
+  }
+
+  function renderUserQuickList(users) {
+    var withMailbox = users.filter(function (u) { return u.canToggle; });
+    if (!withMailbox.length) {
+      closeUserQuickList();
+      return;
+    }
+    userQuickList.innerHTML = '';
+    userQuickList.hidden = false;
+    withMailbox.forEach(function (u) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'group-list-item';
+      row.innerHTML =
+        '<span class="group-list-name">' + (u.displayName || u.samAccountName) + ' <span class="hint">(' + (u.company || '—') + ')</span></span>' +
+        '<code class="group-list-code">' + u.email + '</code>';
+      row.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        targetEmailInput.value = u.email;
+        userQuickSearch.value = '';
+        closeUserQuickList();
+      });
+      userQuickList.appendChild(row);
+    });
+  }
+
+  function searchUsers(query) {
+    fetch('/directory/api/search?q=' + encodeURIComponent(query))
+      .then(function (r) { return r.json(); })
+      .then(function (data) { renderUserQuickList((data && data.users) || []); })
+      .catch(function () { /* quick-select is a convenience feature; ignore failures */ });
+  }
+
+  userQuickSearch.addEventListener('input', function () {
+    var text = userQuickSearch.value.trim();
+    clearTimeout(searchDebounce);
+    if (!text) {
+      closeUserQuickList();
+      return;
+    }
+    searchDebounce = setTimeout(function () { searchUsers(text); }, 200);
+  });
+  userQuickSearch.addEventListener('blur', closeUserQuickList);
+  userQuickSearch.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      closeUserQuickList();
+      userQuickSearch.blur();
+    }
+  });
+})();
+
 document.getElementById('resetForm').addEventListener('submit', function (e) {
   e.preventDefault();
 

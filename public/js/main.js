@@ -49,42 +49,33 @@ function updateGroupPreview() {
 partnerIdInput.addEventListener('input', updateGroupPreview);
 partnerNameInput.addEventListener('input', updateGroupPreview);
 
-// --- Quick-select from previously used groups ---
+// --- Quick-select from the full imported AD group list ---
 var groupQuickSearch = document.getElementById('groupQuickSearch');
 var groupQuickList = document.getElementById('groupQuickList');
-var knownGroups = [];
+var groupSearchDebounce = null;
+var lastGroupMatches = [];
 
 function closeGroupQuickList() {
   groupQuickList.hidden = true;
   groupQuickList.innerHTML = '';
 }
 
-function renderGroupQuickList() {
-  var text = groupQuickSearch.value.toLowerCase().trim();
-  // With no search text yet, show every known group (like a normal dropdown);
-  // once the user types, narrow it down to matches.
-  var filtered = !text
-    ? knownGroups
-    : knownGroups.filter(function (g) {
-      return (g.partner || '').toLowerCase().indexOf(text) !== -1 ||
-        (g.partnerId || '').toLowerCase().indexOf(text) !== -1 ||
-        (g.groupName || '').toLowerCase().indexOf(text) !== -1;
-    });
-
-  if (!filtered.length) {
+function renderGroupQuickList(groups) {
+  lastGroupMatches = groups;
+  if (!groups.length) {
     closeGroupQuickList();
     return;
   }
 
   groupQuickList.innerHTML = '';
   groupQuickList.hidden = false;
-  filtered.forEach(function (g) {
+  groups.forEach(function (g) {
     var row = document.createElement('button');
     row.type = 'button';
     row.className = 'group-list-item';
     row.innerHTML =
-      '<span class="group-list-name">' + g.partner + ' <span class="hint">(#' + g.partnerId + ')</span></span>' +
-      '<code class="group-list-code">' + g.groupName + '</code>';
+      '<span class="group-list-name">' + g.partner + (g.parsed ? ' <span class="hint">(#' + g.partnerId + ')</span>' : '') + '</span>' +
+      '<code class="group-list-code">' + g.samAccountName + '</code>';
     row.addEventListener('mousedown', function (e) {
       // mousedown (not click) so this fires before the input's blur hides the list
       e.preventDefault();
@@ -98,8 +89,25 @@ function renderGroupQuickList() {
   });
 }
 
-groupQuickSearch.addEventListener('input', renderGroupQuickList);
-groupQuickSearch.addEventListener('focus', renderGroupQuickList);
+function searchGroups(query) {
+  fetch('/groups/api/search-all?q=' + encodeURIComponent(query))
+    .then(function (r) { return r.json(); })
+    .then(function (data) { renderGroupQuickList((data && data.groups) || []); })
+    .catch(function () { /* quick-select is a convenience feature; ignore failures */ });
+}
+
+groupQuickSearch.addEventListener('input', function () {
+  var text = groupQuickSearch.value.trim();
+  clearTimeout(groupSearchDebounce);
+  if (!text) {
+    closeGroupQuickList();
+    return;
+  }
+  groupSearchDebounce = setTimeout(function () { searchGroups(text); }, 200);
+});
+groupQuickSearch.addEventListener('focus', function () {
+  if (groupQuickSearch.value.trim() && lastGroupMatches.length) renderGroupQuickList(lastGroupMatches);
+});
 groupQuickSearch.addEventListener('blur', closeGroupQuickList);
 groupQuickSearch.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') {
@@ -107,30 +115,6 @@ groupQuickSearch.addEventListener('keydown', function (e) {
     groupQuickSearch.blur();
   }
 });
-
-var refreshGroupsBtn = document.getElementById('refreshGroupsBtn');
-
-function loadKnownGroups() {
-  return fetch('/groups/api/list')
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      knownGroups = data.groups || [];
-      // Keep an already-open dropdown in sync with the freshly fetched list.
-      if (!groupQuickList.hidden) renderGroupQuickList();
-    })
-    .catch(function () { /* quick-select is a convenience feature; ignore failures */ });
-}
-
-refreshGroupsBtn.addEventListener('click', function () {
-  refreshGroupsBtn.disabled = true;
-  refreshGroupsBtn.textContent = 'Refreshing...';
-  loadKnownGroups().finally(function () {
-    refreshGroupsBtn.disabled = false;
-    refreshGroupsBtn.textContent = 'Refresh';
-  });
-});
-
-loadKnownGroups();
 
 // --- Submit button gated on manual group confirmation ---
 function updateSubmitState() {
@@ -275,8 +259,6 @@ document.getElementById('provisionForm').addEventListener('submit', function (e)
         groupPreview.hidden = true;
         resetUserRows();
         updateSubmitState();
-        // We're the ones who just changed group membership — refresh the known-groups list.
-        loadKnownGroups();
       }
       return;
     }

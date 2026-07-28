@@ -4,9 +4,9 @@ const router = express.Router();
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const groupsController = require('../controllers/groups.controller');
 
-// Read-only, non-sensitive: any authenticated operator can look up previously used
-// partner/group names to avoid retyping them on the provisioning form.
-router.get('/api/list', requireAuth, groupsController.listGroups);
+// Read-only, non-sensitive: any authenticated operator can search the full imported
+// AD group list to avoid retyping partner/group names on the provisioning form.
+router.get('/api/search-all', requireAuth, groupsController.searchAllGroups);
 
 router.use(requireAuth, requireAdmin);
 

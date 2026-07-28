@@ -1,0 +1,64 @@
+<!-- File: views/directory.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Directory — User Provisioning</title>
+  <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <main class="container admin-container">
+    <header class="top-bar">
+      <div class="brand-row-inline">
+        <img class="brand-logo-sm" src="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" alt="BetConstruct logo" />
+        <h1>Directory</h1>
+      </div>
+      <div class="top-bar-actions">
+        <a href="/" class="link-button">Back to form</a>
+        <a href="/groups" class="link-button">Groups</a>
+        <a href="/admin" class="link-button">Admin Panel</a>
+        <form method="POST" action="/logout" class="logout-form">
+          <span class="signed-in-as">Signed in as <strong><%= username %></strong></span>
+          <button type="submit" class="link-button">Sign out</button>
+        </form>
+      </div>
+    </header>
+
+    <div class="notice notice-info">
+      Imported from ADManager Plus: <strong><%= importStats.userCount %></strong> users,
+      <strong><%= importStats.groupCount %></strong> groups
+      (last imported <%= importStats.usersImportedAt ? new Date(importStats.usersImportedAt).toLocaleString() : '—' %>).
+      Search below to see any imported AD account's Enabled/Disabled status and toggle it. Accounts without a mailbox
+      (Email Address = "-") cannot be toggled through ADManager Plus and are shown status-only.
+    </div>
+
+    <section class="panel">
+      <div class="panel-header">Find a user</div>
+      <div class="panel-body">
+        <label>Search
+          <input type="text" id="userSearchInput" placeholder="Search by name, SAM account, company or AGP..." autocomplete="off" />
+        </label>
+        <span class="hint" id="searchHint">Type at least one character to search the imported directory.</span>
+      </div>
+      <div class="panel-body no-pad">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Company</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody"></tbody>
+        </table>
+        <span class="hint" id="userTableEmpty" style="display:block;padding:1rem;" hidden>No matching users found.</span>
+      </div>
+    </section>
+  </main>
+  <script src="/js/directory.js"></script>
+</body>
+</html>

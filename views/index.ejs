@@ -15,6 +15,7 @@
         <% if (role === 'admin') { %>
           <a href="/reset-password" class="link-button">Password Reset</a>
           <a href="/groups" class="link-button">Groups</a>
+          <a href="/directory" class="link-button">Directory</a>
           <a href="/admin" class="link-button">Admin Panel</a>
         <% } %>
         <form method="POST" action="/logout" class="logout-form">
@@ -43,12 +44,9 @@
       <div class="panel">
         <div class="panel-header">Partner &amp; group (shared by every user below)</div>
         <div class="panel-body">
-          <div class="label-with-action">
-            <label class="grow">Use an existing group
-              <input type="text" id="groupQuickSearch" placeholder="Search previously used partners..." autocomplete="off" />
-            </label>
-            <button type="button" id="refreshGroupsBtn" class="secondary-btn">Refresh</button>
-          </div>
+          <label>Use an existing group
+            <input type="text" id="groupQuickSearch" placeholder="Search all imported AD groups by name or ID..." autocomplete="off" />
+          </label>
           <div class="group-list" id="groupQuickList" hidden></div>
           <span class="hint">Selecting a group below fills in Partner ID / Partner Name for you. Manage groups and enable/disable users on the <a href="/groups" target="_blank">Groups</a> page.</span>
 

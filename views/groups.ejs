@@ -17,6 +17,7 @@
       </div>
       <div class="top-bar-actions">
         <a href="/" class="link-button">Back to form</a>
+        <a href="/directory" class="link-button">Directory</a>
         <a href="/admin" class="link-button">Admin Panel</a>
         <a href="/reset-password" class="link-button">Password Reset</a>
         <form method="POST" action="/logout" class="logout-form">
@@ -27,21 +28,20 @@
     </header>
 
     <div class="notice notice-info" id="groupApiNotice">
-      ADManager Plus does not expose a group-listing REST API on this server, so the list below is built from
-      groups this app has previously provisioned users into — not a live query against AD.
+      ADManager Plus does not expose a live group-listing REST API on this server, so the search below is built from
+      the full AD group export imported into this app's database — 784 groups as of the last import.
+      Group <em>members</em> are still fetched live from AD.
     </div>
 
     <section class="panel">
       <div class="panel-header">Find a group</div>
       <div class="panel-body">
-        <div class="label-with-action">
-          <label class="grow">Search
-            <input type="text" id="groupSearchInput" placeholder="Search by partner name or partner ID..." autocomplete="off" />
-          </label>
-          <button type="button" id="refreshGroupsBtn" class="secondary-btn">Refresh</button>
-        </div>
+        <label>Search
+          <input type="text" id="groupSearchInput" placeholder="Search by partner name, partner ID or SAM account name..." autocomplete="off" />
+        </label>
+        <span class="hint" id="groupListHint">Type at least one character to search all imported AD groups.</span>
         <div class="group-list" id="groupList"></div>
-        <span class="hint" id="groupListEmpty" hidden>No groups found yet — provision a user for a partner first, or create a new group below.</span>
+        <span class="hint" id="groupListEmpty" hidden>No groups found — create a new group below.</span>
       </div>
     </section>
 

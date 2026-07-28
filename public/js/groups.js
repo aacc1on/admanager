@@ -2,6 +2,7 @@
 (function () {
   var groupListEl = document.getElementById('groupList');
   var groupListEmpty = document.getElementById('groupListEmpty');
+  var groupListHint = document.getElementById('groupListHint');
   var searchInput = document.getElementById('groupSearchInput');
   var membersPanel = document.getElementById('membersPanel');
   var membersPanelHeader = document.getElementById('membersPanelHeader');
@@ -16,8 +17,8 @@
   var newGroupNameValue = document.getElementById('newGroupNameValue');
   var newGroupNamePre2000 = document.getElementById('newGroupNamePre2000');
 
-  var allGroups = [];
-  var selectedPartner = null;
+  var selectedGroup = null;
+  var searchDebounce = null;
 
   function sanitizeForAD(value) {
     if (!value) return '';
@@ -30,49 +31,27 @@
     return cleanName + '-RDS-' + cleanId;
   }
 
-  function renderGroupList(filterText) {
-    var text = (filterText || '').toLowerCase().trim();
-    var filtered = allGroups.filter(function (g) {
-      if (!text) return true;
-      return (g.partner || '').toLowerCase().indexOf(text) !== -1 ||
-        (g.partnerId || '').toLowerCase().indexOf(text) !== -1 ||
-        (g.groupName || '').toLowerCase().indexOf(text) !== -1;
-    });
-
+  function renderGroupList(groups) {
     groupListEl.innerHTML = '';
-    groupListEmpty.hidden = filtered.length > 0;
+    groupListEmpty.hidden = groups.length > 0;
 
-    filtered.forEach(function (g) {
+    groups.forEach(function (g) {
       var row = document.createElement('button');
       row.type = 'button';
-      row.className = 'group-list-item' + (selectedPartner === g.partner ? ' selected' : '');
+      row.className = 'group-list-item' + (selectedGroup === g.samAccountName ? ' selected' : '');
       row.innerHTML =
-        '<span class="group-list-name">' + g.partner + ' <span class="hint">(#' + g.partnerId + ')</span></span>' +
-        '<code class="group-list-code">' + g.groupName + '</code>' +
-        '<span class="hint">' + g.userCount + ' provisioned</span>';
+        '<span class="group-list-name">' + g.partner + (g.parsed ? ' <span class="hint">(#' + g.partnerId + ')</span>' : '') + '</span>' +
+        '<code class="group-list-code">' + g.samAccountName + '</code>';
       row.addEventListener('click', function () { selectGroup(g); });
       groupListEl.appendChild(row);
     });
   }
 
-  function loadGroups() {
-    return fetch('/groups/api/list')
+  function searchGroups(query) {
+    return fetch('/groups/api/search-all?q=' + encodeURIComponent(query))
       .then(function (r) { return r.json(); })
-      .then(function (data) {
-        allGroups = data.groups || [];
-        renderGroupList(searchInput.value);
-      });
+      .then(function (data) { renderGroupList((data && data.groups) || []); });
   }
-
-  var refreshGroupsBtn = document.getElementById('refreshGroupsBtn');
-  refreshGroupsBtn.addEventListener('click', function () {
-    refreshGroupsBtn.disabled = true;
-    refreshGroupsBtn.textContent = 'Refreshing...';
-    loadGroups().finally(function () {
-      refreshGroupsBtn.disabled = false;
-      refreshGroupsBtn.textContent = 'Refresh';
-    });
-  });
 
   function statusCell(member) {
     var badge = document.createElement('span');
@@ -82,10 +61,10 @@
   }
 
   function selectGroup(g) {
-    selectedPartner = g.partner;
-    renderGroupList(searchInput.value);
+    selectedGroup = g.samAccountName;
+    searchGroups(searchInput.value.trim());
     membersPanel.hidden = false;
-    membersPanelHeader.textContent = 'Group members — ' + g.partner + ' (' + g.groupName + ')';
+    membersPanelHeader.textContent = 'Group members — ' + g.partner + ' (' + g.samAccountName + ')';
     membersTableBody.innerHTML = '<tr><td colspan="4" class="hint">Loading...</td></tr>';
     membersEmpty.hidden = true;
 
@@ -178,13 +157,24 @@
     newGroupPreview.hidden = false;
   }
 
-  searchInput.addEventListener('input', function () { renderGroupList(searchInput.value); });
+  searchInput.addEventListener('input', function () {
+    var text = searchInput.value.trim();
+    clearTimeout(searchDebounce);
+    if (!text) {
+      renderGroupList([]);
+      if (groupListHint) groupListHint.textContent = 'Type at least one character to search all imported AD groups.';
+      return;
+    }
+    searchDebounce = setTimeout(function () {
+      searchGroups(text).then(function () {
+        if (groupListHint) groupListHint.textContent = '';
+      });
+    }, 200);
+  });
   newPartnerName.addEventListener('input', updateCreatePreview);
   newPartnerId.addEventListener('input', updateCreatePreview);
   toggleCreateGroupBtn.addEventListener('click', function () {
     createGroupPanel.hidden = !createGroupPanel.hidden;
     toggleCreateGroupBtn.textContent = createGroupPanel.hidden ? '+ Create a new group' : '− Hide';
   });
-
-  loadGroups();
 })();

@@ -1,18 +1,23 @@
 // File: src/controllers/groups.controller.js
 const { validateToggleUserInput } = require('../middleware/validate');
-const { sanitizeForAD, buildGroupName } = require('../utils/adHelpers');
+const { sanitizeForAD, parseGroupName } = require('../utils/adHelpers');
 const adManager = require('../services/admanager.service');
 const { audit, logger } = require('../utils/logger');
 const store = require('../utils/store');
 
-function listGroups(req, res) {
-  const groups = store.getKnownGroups().map(function (g) {
+function searchAllGroups(req, res) {
+  const q = (req.query.q || '').toString();
+  if (!q.trim()) {
+    return res.json({ ok: true, groups: [] });
+  }
+  const rows = store.searchAdGroups(q, 50);
+  const groups = rows.map(function (g) {
+    const parts = parseGroupName(g.sam_account_name);
     return {
-      partner: g.partner,
-      partnerId: g.partnerId,
-      groupName: buildGroupName(g.partner, g.partnerId),
-      userCount: g.userCount,
-      lastUsed: g.lastUsed
+      samAccountName: g.sam_account_name,
+      partner: parts ? parts.partner : g.sam_account_name,
+      partnerId: parts ? parts.partnerId : '',
+      parsed: !!parts
     };
   });
   res.json({ ok: true, groups: groups });
@@ -83,4 +88,4 @@ async function toggleUser(req, res) {
   }
 }
 
-module.exports = { listGroups, getGroupMembers, toggleUser };
+module.exports = { searchAllGroups, getGroupMembers, toggleUser };

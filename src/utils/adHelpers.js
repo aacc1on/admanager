@@ -28,6 +28,14 @@ function buildGroupDN(groupName, groupOU) {
   return `CN=${groupName},${groupOU}`;
 }
 
+// Recovers { partner, partnerId } from a group SAM name built by buildGroupName,
+// tolerating the handful of legacy groups with inconsistent casing/spacing around "RDS".
+function parseGroupName(samAccountName) {
+  const match = /^(.*?)\s*-\s*RDS\s*-\s*(\d+)$/i.exec((samAccountName || '').trim());
+  if (!match) return null;
+  return { partner: match[1].trim(), partnerId: match[2].trim() };
+}
+
 function generatePassword(length = 14) {
   const lower = 'abcdefghijkmnopqrstuvwxyz';
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -50,4 +58,4 @@ function generatePassword(length = 14) {
   return chars.join('');
 }
 
-module.exports = { sanitizeForAD, truncate, buildGroupName, buildGroupDN, generatePassword, SAM_MAX_LENGTH };
+module.exports = { sanitizeForAD, truncate, buildGroupName, buildGroupDN, parseGroupName, generatePassword, SAM_MAX_LENGTH };

@@ -19,6 +19,7 @@
         <a href="/" class="link-button">Back to form</a>
         <a href="/reset-password" class="link-button">Password Reset</a>
         <a href="/groups" class="link-button">Groups</a>
+        <a href="/directory" class="link-button">Directory</a>
         <form method="POST" action="/logout" class="logout-form">
           <span class="signed-in-as">Signed in as <strong><%= currentUsername %></strong></span>
           <button type="submit" class="link-button">Sign out</button>
@@ -154,6 +155,10 @@
                   <td><%= a.notifyEmail || '—' %> (notified)</td>
                 <% } else if (a.type === 'group_toggle') { %>
                   <td>Enable/Disable</td>
+                  <td><%= a.targetEmail || '—' %></td>
+                  <td>—</td>
+                <% } else if (a.type === 'directory_toggle') { %>
+                  <td>Directory Enable/Disable</td>
                   <td><%= a.targetEmail || '—' %></td>
                   <td>—</td>
                 <% } else { %>
