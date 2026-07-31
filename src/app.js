@@ -2,6 +2,8 @@
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const ejs = require('ejs');
+const { getBaseDir } = require('./utils/baseDir');
 const routes = require('./routes');
 const adminRoutes = require('./routes/admin');
 const passwordResetRoutes = require('./routes/passwordReset');
@@ -10,10 +12,13 @@ const directoryRoutes = require('./routes/directory');
 
 const app = express();
 
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, '..', 'views'));
+const BASE_DIR = getBaseDir();
 
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.engine('ejs', ejs.__express);
+app.set('view engine', 'ejs');
+app.set('views', path.join(BASE_DIR, 'views'));
+
+app.use(express.static(path.join(BASE_DIR, 'public')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 

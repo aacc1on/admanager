@@ -1,64 +1,113 @@
 // File: public/js/reset-password.js
-(function () {
-  var userQuickSearch = document.getElementById('userQuickSearch');
-  var userQuickList = document.getElementById('userQuickList');
-  var targetEmailInput = document.getElementById('targetEmail');
-  var searchDebounce = null;
+var MAX_RESET_ROWS = 20;
 
-  function closeUserQuickList() {
-    userQuickList.hidden = true;
-    userQuickList.innerHTML = '';
+var resetRowTemplate = document.getElementById('resetRowTemplate');
+var resetRowsContainer = document.getElementById('resetRows');
+var addResetBtn = document.getElementById('addResetBtn');
+var resetCount = document.getElementById('resetCount');
+
+function rowTargetEmailInput(row) { return row.querySelector('[data-field="targetEmail"]'); }
+function rowNotifyEmailInput(row) { return row.querySelector('[data-field="notifyEmail"]'); }
+function rowQuickSearch(row) { return row.querySelector('[data-quick-search]'); }
+function rowQuickList(row) { return row.querySelector('[data-quick-list]'); }
+
+function wireQuickSearch(row) {
+  var input = rowQuickSearch(row);
+  var list = rowQuickList(row);
+  var targetEmailInput = rowTargetEmailInput(row);
+  var debounce = null;
+
+  function closeList() {
+    list.hidden = true;
+    list.innerHTML = '';
   }
 
-  function renderUserQuickList(users) {
+  function renderList(users) {
     var withMailbox = users.filter(function (u) { return u.canToggle; });
     if (!withMailbox.length) {
-      closeUserQuickList();
+      closeList();
       return;
     }
-    userQuickList.innerHTML = '';
-    userQuickList.hidden = false;
+    list.innerHTML = '';
+    list.hidden = false;
     withMailbox.forEach(function (u) {
-      var row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'group-list-item';
-      row.innerHTML =
+      var item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'group-list-item';
+      item.innerHTML =
         '<span class="group-list-name">' + (u.displayName || u.samAccountName) + ' <span class="hint">(' + (u.company || '—') + ')</span></span>' +
         '<code class="group-list-code">' + u.email + '</code>';
-      row.addEventListener('mousedown', function (e) {
+      item.addEventListener('mousedown', function (e) {
         e.preventDefault();
         targetEmailInput.value = u.email;
-        userQuickSearch.value = '';
-        closeUserQuickList();
+        input.value = '';
+        closeList();
       });
-      userQuickList.appendChild(row);
+      list.appendChild(item);
     });
   }
 
-  function searchUsers(query) {
-    fetch('/directory/api/search?q=' + encodeURIComponent(query))
-      .then(function (r) { return r.json(); })
-      .then(function (data) { renderUserQuickList((data && data.users) || []); })
-      .catch(function () { /* quick-select is a convenience feature; ignore failures */ });
-  }
-
-  userQuickSearch.addEventListener('input', function () {
-    var text = userQuickSearch.value.trim();
-    clearTimeout(searchDebounce);
+  input.addEventListener('input', function () {
+    var text = input.value.trim();
+    clearTimeout(debounce);
     if (!text) {
-      closeUserQuickList();
+      closeList();
       return;
     }
-    searchDebounce = setTimeout(function () { searchUsers(text); }, 200);
+    debounce = setTimeout(function () {
+      fetch('/directory/api/search?q=' + encodeURIComponent(text))
+        .then(function (r) { return r.json(); })
+        .then(function (data) { renderList((data && data.users) || []); })
+        .catch(function () { /* quick-select is a convenience feature; ignore failures */ });
+    }, 200);
   });
-  userQuickSearch.addEventListener('blur', closeUserQuickList);
-  userQuickSearch.addEventListener('keydown', function (e) {
+  input.addEventListener('blur', closeList);
+  input.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
-      closeUserQuickList();
-      userQuickSearch.blur();
+      closeList();
+      input.blur();
     }
   });
-})();
+}
+
+function reindexResetRows() {
+  var rows = resetRowsContainer.querySelectorAll('[data-reset-row]');
+  rows.forEach(function (row, index) {
+    row.querySelector('[data-row-number]').textContent = index + 1;
+    rowTargetEmailInput(row).name = 'entries[' + index + '][targetEmail]';
+    rowNotifyEmailInput(row).name = 'entries[' + index + '][notifyEmail]';
+    row.querySelector('[data-remove-row]').disabled = rows.length <= 1;
+  });
+  resetCount.textContent = '(' + rows.length + ')';
+  addResetBtn.disabled = rows.length >= MAX_RESET_ROWS;
+}
+
+function addResetRow() {
+  var rows = resetRowsContainer.querySelectorAll('[data-reset-row]');
+  if (rows.length >= MAX_RESET_ROWS) return;
+
+  var fragment = resetRowTemplate.content.cloneNode(true);
+  var row = fragment.querySelector('[data-reset-row]');
+  resetRowsContainer.appendChild(fragment);
+
+  wireQuickSearch(row);
+  row.querySelector('[data-remove-row]').addEventListener('click', function () {
+    if (resetRowsContainer.querySelectorAll('[data-reset-row]').length <= 1) return;
+    row.remove();
+    reindexResetRows();
+  });
+
+  reindexResetRows();
+  return row;
+}
+
+function resetRows() {
+  resetRowsContainer.innerHTML = '';
+  addResetRow();
+}
+
+addResetBtn.addEventListener('click', addResetRow);
+resetRows();
 
 document.getElementById('resetForm').addEventListener('submit', function (e) {
   e.preventDefault();
@@ -103,6 +152,7 @@ document.getElementById('resetForm').addEventListener('submit', function (e) {
       addLine(data.message, cls);
       if (data.status === 'success') {
         form.reset();
+        resetRows();
       }
       return;
     }

@@ -12,10 +12,10 @@
   <main class="container" data-group-ou="<%= groupOu %>" data-sam-max-length="<%= samMaxLength %>">
     <header class="top-bar">
       <div class="top-bar-actions">
+        <a href="/reset-password" class="link-button">Password Reset</a>
+        <a href="/groups" class="link-button">Groups</a>
+        <a href="/directory" class="link-button">Directory</a>
         <% if (role === 'admin') { %>
-          <a href="/reset-password" class="link-button">Password Reset</a>
-          <a href="/groups" class="link-button">Groups</a>
-          <a href="/directory" class="link-button">Directory</a>
           <a href="/admin" class="link-button">Admin Panel</a>
         <% } %>
         <form method="POST" action="/logout" class="logout-form">

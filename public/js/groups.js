@@ -103,12 +103,19 @@
     tr.appendChild(tdStatus);
 
     var tdAction = document.createElement('td');
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'secondary-btn';
-    btn.textContent = member.enabled ? 'Disable' : 'Enable';
-    btn.addEventListener('click', function () { toggleMember(member, btn, tdStatus); });
-    tdAction.appendChild(btn);
+    if (member.canToggle) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'secondary-btn';
+      btn.textContent = member.enabled ? 'Disable' : 'Enable';
+      btn.addEventListener('click', function () { toggleMember(member, btn, tdStatus); });
+      tdAction.appendChild(btn);
+    } else {
+      var span = document.createElement('span');
+      span.className = 'hint';
+      span.textContent = 'No mailbox';
+      tdAction.appendChild(span);
+    }
     tr.appendChild(tdAction);
 
     membersTableBody.appendChild(tr);
@@ -123,7 +130,7 @@
     fetch('/groups/api/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mail: member.email, enabled: nextEnabled })
+      body: JSON.stringify({ samAccountName: member.samAccountName, mail: member.email, enabled: nextEnabled })
     })
       .then(function (r) { return r.json().then(function (data) { return { status: r.status, data: data }; }); })
       .then(function (res) {

@@ -1,6 +1,7 @@
 // File: src/services/mail.service.js
 const nodemailer = require('nodemailer');
 const path = require('path');
+const { getBaseDir } = require('../utils/baseDir');
 
 let transporter = null;
 
@@ -12,7 +13,7 @@ const BRAND_BORDER = '#eec2da';
 
 const GUIDE_ATTACHMENT = {
   filename: 'Windows App Guide - Information Security.pdf',
-  path: path.join(__dirname, '..', '..', 'assets', 'Windows-App-Guide.pdf')
+  path: path.join(getBaseDir(), 'assets', 'Windows-App-Guide.pdf')
 };
 
 function getTransporter() {

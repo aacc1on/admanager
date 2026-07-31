@@ -18,13 +18,19 @@
       <div class="top-bar-actions">
         <a href="/" class="link-button">Back to form</a>
         <a href="/groups" class="link-button">Groups</a>
-        <a href="/admin" class="link-button">Admin Panel</a>
+        <a href="/reset-password" class="link-button">Password Reset</a>
+        <% if (role === 'admin') { %>
+          <a href="/admin" class="link-button">Admin Panel</a>
+        <% } %>
         <form method="POST" action="/logout" class="logout-form">
           <span class="signed-in-as">Signed in as <strong><%= username %></strong></span>
           <button type="submit" class="link-button">Sign out</button>
         </form>
       </div>
     </header>
+
+    <% if (notice) { %><div class="notice notice-success"><%= notice %></div><% } %>
+    <% if (error) { %><div class="notice notice-error"><%= error %></div><% } %>
 
     <div class="notice notice-info">
       Imported from ADManager Plus: <strong><%= importStats.userCount %></strong> users,
@@ -33,6 +39,29 @@
       Search below to see any imported AD account's Enabled/Disabled status and toggle it. Accounts without a mailbox
       (Email Address = "-") cannot be toggled through ADManager Plus and are shown status-only.
     </div>
+
+    <section class="panel">
+      <div class="panel-header">
+        <button type="button" id="toggleImportBtn" class="link-button"><%= (notice || error) ? '− Hide' : '+ Import AD export CSV files' %></button>
+      </div>
+      <div class="panel-body" id="importPanel" <%= (notice || error) ? '' : 'hidden' %>>
+        <span class="hint">
+          Upload a fresh ADManager Plus export to refresh the imported directory. Files are matched by
+          "SAM Account Name" and upserted — nothing is duplicated, and you can re-upload any time the data changes.
+        </span>
+        <form method="POST" action="/directory/import" enctype="multipart/form-data">
+          <label>Groups export CSV
+            <input type="file" name="groupsFile" accept=".csv" />
+            <span class="hint">Columns: S.No, SAM Account Name, Group Type(String), Group Scope, Domain Name</span>
+          </label>
+          <label>Users export CSV
+            <input type="file" name="usersFile" accept=".csv" />
+            <span class="hint">Columns: S.No, Display Name, SAM Account Name, Company, AGP, Account Status, Common Name, Email Address, When Created, When Changed</span>
+          </label>
+          <button type="submit">Import</button>
+        </form>
+      </div>
+    </section>
 
     <section class="panel">
       <div class="panel-header">Find a user</div>

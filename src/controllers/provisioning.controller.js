@@ -9,6 +9,9 @@ const store = require('../utils/store');
 
 const GROUP_OU = process.env.GROUP_OU;
 const USER_MAIL_DOMAIN = process.env.USER_MAIL_DOMAIN || 'bcapps.cloud';
+const GROUP_TYPE = process.env.GROUP_TYPE || 'Security';
+const GROUP_SCOPE = process.env.GROUP_SCOPE || 'Global';
+const DOMAIN_NAME = process.env.DOMAIN_NAME;
 
 function sseSend(res, event) {
   res.write('data: ' + JSON.stringify(event) + '\n\n');
@@ -112,6 +115,12 @@ async function streamProvisioning(req, res) {
         groupDn = created.dn;
         sseSend(res, { step: 'group', status: 'done', message: 'Group "' + groupName + '" created via API' });
       }
+      store.upsertAdGroups([{
+        samAccountName: groupName,
+        groupType: GROUP_TYPE,
+        groupScope: GROUP_SCOPE,
+        domainName: DOMAIN_NAME
+      }]);
     } catch (groupErr) {
       groupDn = buildGroupDN(groupName, GROUP_OU);
       sseSend(res, {
@@ -178,6 +187,19 @@ async function streamProvisioning(req, res) {
         auditEntry.targetEmail = accountEmail;
         auditEntry.notifyEmail = entry.email;
         sseSend(res, { step: step, status: 'done', message: 'User created (' + accountEmail + '), added to group via memberof' });
+
+        const nowIso = new Date().toISOString();
+        store.upsertAdUsers([{
+          samAccountName: createdUser.logonName,
+          displayName: safeGivenName,
+          company: partnerNameClean,
+          agp: entry.altSecurityIdSuffix,
+          accountStatus: 'Enabled',
+          commonName: safeGivenName,
+          emailAddress: accountEmail,
+          whenCreated: nowIso,
+          whenChanged: nowIso
+        }]);
 
         try {
           await sendCredentialsEmail(entry.email, accountEmail, createdUser.password);

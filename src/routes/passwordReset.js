@@ -1,10 +1,10 @@
 // File: src/routes/passwordReset.js
 const express = require('express');
 const router = express.Router();
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { streamPasswordReset } = require('../controllers/passwordReset.controller');
 
-router.use(requireAuth, requireAdmin);
+router.use(requireAuth);
 
 router.get('/', function (req, res) {
   res.render('reset-password', {

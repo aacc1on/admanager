@@ -111,6 +111,11 @@ src/
     dedupe.js                     Short-lived in-memory cache to block duplicate/double-click submits
     logger.js                     winston logger + audit() helper (strips passwords before logging)
     store.js                      SQLite-backed app users, activity history, and imported AD groups/users
+    baseDir.js                    Resolves the app's base folder — the .exe's own folder when packaged, project root otherwise
+    embeddedAssets.js              Self-extracts views/public/assets and the default .env template from inside the packaged .exe
+scripts/
+  build-exe.js                    Bundles + packages the app (with embedded assets) into dist/UserProvisioning.exe (see below)
+  install-shared.js               Installs the .exe to C:\ProgramData\UserProvisioning and creates the Desktop shortcut(s)
 views/                           login.ejs, index.ejs (provisioning form), admin.ejs, operator.ejs,
                                  reset-password.ejs, groups.ejs, directory.ejs
 public/                          css/style.css, js/main.js, js/reset-password.js, js/groups.js, js/directory.js
@@ -267,6 +272,27 @@ Copy `.env.example` to `.env` and fill these in. `.env` is gitignored — never 
 | `SMTP_USER` | — | SMTP auth username (e.g. a Gmail address) |
 | `SMTP_PASS` | — | SMTP auth password (e.g. a Gmail app password) |
 | `SMTP_FROM` | `"User Provisioning <noreply@example.com>"` | From-address for credential emails |
+
+## Packaging as a Windows .exe (shared, single-machine deployment)
+
+For a single Windows machine shared by several local Windows user accounts (everyone logs into the same PC and just wants to open the app in their browser), the whole app packages into **one self-contained `.exe`** — no separate Node.js install needed, since the exact Node runtime is embedded via Node's built-in [Single Executable Application](https://nodejs.org/api/single-executable-applications.html) support, and `views/`, `public/`, `assets/`, and a default `.env` template are embedded *inside* the `.exe` itself (see `src/utils/embeddedAssets.js`) and self-extracted next to it on every startup. There is nothing else to copy around — the `.exe` alone is the whole distributable.
+
+```bash
+npm run build:exe        # -> dist/UserProvisioning.exe, plus deploy/ for local testing
+npm run install:shared   # installs it to C:\ProgramData\UserProvisioning and adds a Desktop shortcut
+```
+
+`install:shared`:
+- Copies the `.exe` (always refreshed) into `C:\ProgramData\UserProvisioning` — the standard, machine-wide, all-users-shared Windows location (not `%TEMP%`, which is **per-user** and would silently defeat the "shared DB" goal).
+- Seeds `.env` and `data/` (the SQLite DB — app users, imported AD groups/users, activity history) from the project's own copies **only if the shared location doesn't already have them** — an install that's already live is never clobbered by a later rebuild.
+- Writes a hidden-window launcher (`Start-UserProvisioning.vbs`) next to the `.exe`, and creates a **"User Provisioning" Desktop shortcut** pointed at that launcher. It tries `C:\Users\Public\Desktop` (appears on every Windows user's Desktop) first; that requires administrator rights, so if it's not run elevated it falls back to just the current user's Desktop and tells you to re-run elevated to cover everyone.
+
+What happens when someone double-clicks the shortcut:
+- **No console window appears** — the launcher starts the `.exe` hidden.
+- If no instance is running yet, it starts the server and **automatically opens the default browser** to the login page.
+- If an instance is **already running** (started earlier by someone else on the same machine), it detects that and just opens a browser tab to the existing one instead of starting a second process — this is what keeps the DB single and shared: only one process ever owns `data/app.db` at a time, no matter who clicks the shortcut or when.
+
+To push out a code change: `npm run build:exe && npm run install:shared` — the shared `.env`/`data`/`logs` are left alone; only the `.exe` and embedded static assets refresh.
 
 ## Running with Docker
 

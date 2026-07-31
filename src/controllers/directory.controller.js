@@ -3,6 +3,7 @@ const { validateToggleAdUserInput } = require('../middleware/validate');
 const adManager = require('../services/admanager.service');
 const { audit, logger } = require('../utils/logger');
 const store = require('../utils/store');
+const { parseCsvRows, mapGroupRows, mapUserRows } = require('../utils/csvImport');
 
 function mapUser(u) {
   const hasEmail = !!u.email_address && u.email_address !== '-';
@@ -63,4 +64,50 @@ async function toggleUser(req, res) {
   }
 }
 
-module.exports = { searchUsers, toggleUser };
+function importAdData(req, res) {
+  const files = req.files || {};
+  const groupsFile = files.groupsFile && files.groupsFile[0];
+  const usersFile = files.usersFile && files.usersFile[0];
+  const messages = [];
+  const errors = [];
+
+  if (!groupsFile && !usersFile) {
+    errors.push('Choose at least one CSV file (groups and/or users) to import.');
+  }
+
+  if (groupsFile) {
+    try {
+      const rows = mapGroupRows(parseCsvRows(groupsFile.buffer.toString('utf8')));
+      const count = store.upsertAdGroups(rows);
+      messages.push('Imported/updated ' + count + ' groups from "' + groupsFile.originalname + '"');
+      audit({ timestamp: new Date().toISOString(), operator: req.session.username, status: 'Completed', type: 'ad_import_groups', error: null });
+      store.addActivity({ timestamp: new Date().toISOString(), operator: req.session.username, status: 'Completed', type: 'ad_import_groups' });
+    } catch (err) {
+      logger.error('Groups CSV import failed: ' + err.message);
+      errors.push('Groups import failed: ' + err.message);
+    }
+  }
+
+  if (usersFile) {
+    try {
+      const rows = mapUserRows(parseCsvRows(usersFile.buffer.toString('utf8')));
+      const count = store.upsertAdUsers(rows);
+      messages.push('Imported/updated ' + count + ' users from "' + usersFile.originalname + '"');
+      audit({ timestamp: new Date().toISOString(), operator: req.session.username, status: 'Completed', type: 'ad_import_users', error: null });
+      store.addActivity({ timestamp: new Date().toISOString(), operator: req.session.username, status: 'Completed', type: 'ad_import_users' });
+    } catch (err) {
+      logger.error('Users CSV import failed: ' + err.message);
+      errors.push('Users import failed: ' + err.message);
+    }
+  }
+
+  res.render('directory', {
+    username: req.session.username,
+    role: req.session.role,
+    importStats: store.getAdImportStats(),
+    notice: messages.length ? messages.join('. ') : null,
+    error: errors.length ? errors.join('. ') : null
+  });
+}
+
+module.exports = { searchUsers, toggleUser, importAdData };

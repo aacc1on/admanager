@@ -32,13 +32,31 @@ function validateProvisionInput(data) {
   return schema.validate(data, { abortEarly: false, stripUnknown: true });
 }
 
-const resetPasswordSchema = Joi.object({
+const resetEntrySchema = Joi.object({
   targetEmail: Joi.string().trim().email().required().messages({
     '*': 'The AD account email to reset is required and must be a valid email address'
   }),
-  notifyEmail: Joi.string().trim().email().required().messages({
-    '*': 'The email address to send the new password to is required and must be a valid email address'
-  })
+  notifyEmails: Joi.array()
+    .items(Joi.string().trim().email().messages({ '*': 'Each "send to" address must be a valid email address' }))
+    .min(1)
+    .max(10)
+    .required()
+    .messages({
+      'array.min': 'At least one "send new password to" address is required',
+      'array.max': 'You can send to at most 10 addresses per user'
+    })
+});
+
+const resetPasswordSchema = Joi.object({
+  entries: Joi.array()
+    .items(resetEntrySchema)
+    .min(1)
+    .max(20)
+    .required()
+    .messages({
+      'array.min': 'At least one user is required',
+      'array.max': 'You can reset at most 20 users in a single batch'
+    })
 });
 
 function validateResetPasswordInput(data) {

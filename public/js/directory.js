@@ -1,5 +1,14 @@
 // File: public/js/directory.js
 (function () {
+  var toggleImportBtn = document.getElementById('toggleImportBtn');
+  var importPanel = document.getElementById('importPanel');
+  if (toggleImportBtn) {
+    toggleImportBtn.addEventListener('click', function () {
+      importPanel.hidden = !importPanel.hidden;
+      toggleImportBtn.textContent = importPanel.hidden ? '+ Import AD export CSV files' : '− Hide';
+    });
+  }
+
   var searchInput = document.getElementById('userSearchInput');
   var searchHint = document.getElementById('searchHint');
   var tableBody = document.getElementById('userTableBody');

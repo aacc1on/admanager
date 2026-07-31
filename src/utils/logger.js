@@ -2,8 +2,9 @@
 const winston = require('winston');
 const path = require('path');
 const fs = require('fs');
+const { getBaseDir } = require('./baseDir');
 
-const logsDir = path.join(__dirname, '..', '..', 'logs');
+const logsDir = path.join(getBaseDir(), 'logs');
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }

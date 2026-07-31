@@ -4,8 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const { getBaseDir } = require('./baseDir');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+const DATA_DIR = path.join(getBaseDir(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'app.db');
 
 if (!fs.existsSync(DATA_DIR)) {
@@ -266,6 +267,12 @@ function searchAdUsers(query, limit) {
   `).all(q, q, q, q, q, cap);
 }
 
+function getAdUsersByCompany(company) {
+  return db.prepare(
+    `SELECT * FROM ad_users WHERE company = ? COLLATE NOCASE ORDER BY display_name ASC`
+  ).all((company || '').trim());
+}
+
 function getAdUserBySam(samAccountName) {
   return db.prepare('SELECT * FROM ad_users WHERE sam_account_name = ?').get(samAccountName) || null;
 }
@@ -347,6 +354,7 @@ module.exports = {
   upsertAdUsers,
   searchAdUsers,
   searchAdGroups,
+  getAdUsersByCompany,
   getAdUserBySam,
   setAdUserStatus,
   getAdImportStats

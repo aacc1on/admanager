@@ -18,7 +18,9 @@
       <div class="top-bar-actions">
         <a href="/" class="link-button">Back to form</a>
         <a href="/directory" class="link-button">Directory</a>
-        <a href="/admin" class="link-button">Admin Panel</a>
+        <% if (role === 'admin') { %>
+          <a href="/admin" class="link-button">Admin Panel</a>
+        <% } %>
         <a href="/reset-password" class="link-button">Password Reset</a>
         <form method="POST" action="/logout" class="logout-form">
           <span class="signed-in-as">Signed in as <strong><%= username %></strong></span>
@@ -28,9 +30,9 @@
     </header>
 
     <div class="notice notice-info" id="groupApiNotice">
-      ADManager Plus does not expose a live group-listing REST API on this server, so the search below is built from
-      the full AD group export imported into this app's database — 784 groups as of the last import.
-      Group <em>members</em> are still fetched live from AD.
+      ADManager Plus does not expose a live group-listing REST API on this server, so both the group search and its
+      members below are built from this app's imported database (AD export uploads on the Directory page, plus every
+      user this app has provisioned) rather than a live, capped AD query.
     </div>
 
     <section class="panel">
