@@ -82,9 +82,32 @@ function validateToggleAdUserInput(data) {
   return toggleAdUserSchema.validate(data, { abortEarly: false, stripUnknown: true });
 }
 
+const bulkActionSchema = Joi.object({
+  action: Joi.string().valid('enable', 'disable', 'reset').required(),
+  emails: Joi.array()
+    .items(Joi.string().trim().email())
+    .min(1)
+    .max(200)
+    .required()
+    .messages({
+      'array.min': 'Paste at least one email address',
+      'array.max': 'You can process at most 200 accounts in a single batch'
+    }),
+  notifyEmail: Joi.string()
+    .trim()
+    .email()
+    .when('action', { is: 'reset', then: Joi.required(), otherwise: Joi.optional().allow('') })
+    .messages({ '*': 'A valid "send report to" address is required for a bulk password reset' })
+});
+
+function validateBulkActionInput(data) {
+  return bulkActionSchema.validate(data, { abortEarly: false, stripUnknown: true });
+}
+
 module.exports = {
   validateProvisionInput,
   validateResetPasswordInput,
   validateToggleUserInput,
-  validateToggleAdUserInput
+  validateToggleAdUserInput,
+  validateBulkActionInput
 };

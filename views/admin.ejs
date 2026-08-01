@@ -5,14 +5,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin Panel — User Provisioning</title>
-  <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" />
+  <link rel="icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQvnjZCZE0ZXCJzVO6mQGgrSYwmI9FMzAi5PQJbvAmrqw&s=10" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
   <main class="container admin-container">
     <header class="top-bar">
       <div class="brand-row-inline">
-        <img class="brand-logo-sm" src="https://upload.wikimedia.org/wikipedia/commons/0/03/Bet_logo.png" alt="BetConstruct logo" />
+        <img class="brand-logo-sm" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQvnjZCZE0ZXCJzVO6mQGgrSYwmI9FMzAi5PQJbvAmrqw&s=10" alt="BetConstruct logo" />
         <h1>Admin Panel</h1>
       </div>
       <div class="top-bar-actions">
@@ -20,6 +20,7 @@
         <a href="/reset-password" class="link-button">Password Reset</a>
         <a href="/groups" class="link-button">Groups</a>
         <a href="/directory" class="link-button">Directory</a>
+        <a href="/bulk" class="link-button">Bulk Actions</a>
         <form method="POST" action="/logout" class="logout-form">
           <span class="signed-in-as">Signed in as <strong><%= currentUsername %></strong></span>
           <button type="submit" class="link-button">Sign out</button>
@@ -94,7 +95,7 @@
               <th>Username</th>
               <th>Role</th>
               <th>Status</th>
-              <th>AD accounts created</th>
+              <th>Total actions</th>
               <th>Success / Failed</th>
               <th>Last activity</th>
               <th>Created</th>
@@ -160,6 +161,18 @@
                 <% } else if (a.type === 'directory_toggle') { %>
                   <td>Directory Enable/Disable</td>
                   <td><%= a.targetEmail || '—' %></td>
+                  <td>—</td>
+                <% } else if (a.type === 'bulk_reset') { %>
+                  <td>Bulk password reset</td>
+                  <td><%= a.targetEmail || '—' %> (AD account)</td>
+                  <td><%= a.notifyEmail || '—' %> (report to)</td>
+                <% } else if (a.type === 'bulk_enable' || a.type === 'bulk_disable') { %>
+                  <td>Bulk <%= a.type === 'bulk_enable' ? 'Enable' : 'Disable' %></td>
+                  <td><%= a.targetEmail || '—' %></td>
+                  <td>—</td>
+                <% } else if (a.type === 'ad_import_groups' || a.type === 'ad_import_users') { %>
+                  <td>CSV Import (<%= a.type === 'ad_import_groups' ? 'Groups' : 'Users' %>)</td>
+                  <td>—</td>
                   <td>—</td>
                 <% } else { %>
                   <td><%= a.partner %> (<%= a.partnerId %>)</td>

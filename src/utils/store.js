@@ -277,6 +277,10 @@ function getAdUserBySam(samAccountName) {
   return db.prepare('SELECT * FROM ad_users WHERE sam_account_name = ?').get(samAccountName) || null;
 }
 
+function getAdUserByEmail(email) {
+  return db.prepare('SELECT * FROM ad_users WHERE email_address = ? COLLATE NOCASE').get((email || '').trim()) || null;
+}
+
 function setAdUserStatus(samAccountName, status) {
   db.prepare('UPDATE ad_users SET account_status = ? WHERE sam_account_name = ?').run(status, samAccountName);
 }
@@ -356,6 +360,7 @@ module.exports = {
   searchAdGroups,
   getAdUsersByCompany,
   getAdUserBySam,
+  getAdUserByEmail,
   setAdUserStatus,
   getAdImportStats
 };

@@ -144,4 +144,33 @@ async function sendPasswordResetEmail(toEmail, accountEmail, password) {
   });
 }
 
-module.exports = { sendCredentialsEmail, sendPasswordResetEmail };
+// One consolidated report for a bulk password reset, instead of one email per
+// account — the destination is whoever asked for the batch (e.g. the ticket
+// requester), not the individual account holders.
+async function sendBulkResetReport(toEmail, results) {
+  const from = process.env.SMTP_FROM || 'no-reply@localhost';
+  const t = getTransporter();
+  const successes = results.filter(function (r) { return r.ok; });
+  const failures = results.filter(function (r) { return !r.ok; });
+
+  const rows = successes.map(function (r) { return { label: r.email, value: r.password }; });
+  const intro = 'Password reset for ' + successes.length + ' of ' + results.length + ' account(s)' +
+    (failures.length ? ' — ' + failures.length + ' failed (see below).' : ' — all succeeded.');
+  const footerNote = failures.length
+    ? 'Failed: ' + failures.map(function (f) { return f.email + ' (' + f.error + ')'; }).join('; ')
+    : 'This is an automated message, please do not reply.';
+
+  const html = renderEmailHtml({ heading: 'Bulk password reset report', intro: intro, rows: rows, footerNote: footerNote });
+  const text = successes.map(function (r) { return r.email + ': ' + r.password; }).join('\n') +
+    (failures.length ? '\n\nFailed:\n' + failures.map(function (f) { return f.email + ': ' + f.error; }).join('\n') : '');
+
+  await t.sendMail({
+    from: from,
+    to: toEmail,
+    subject: 'Bulk password reset report (' + successes.length + '/' + results.length + ')',
+    text: text,
+    html: html
+  });
+}
+
+module.exports = { sendCredentialsEmail, sendPasswordResetEmail, sendBulkResetReport };

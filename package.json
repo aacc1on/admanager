@@ -25,7 +25,10 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
+    "jimp": "^1.6.1",
     "nodemon": "^3.1.4",
-    "postject": "^1.0.0-alpha.6"
+    "png-to-ico": "^3.0.2",
+    "postject": "^1.0.0-alpha.6",
+    "rcedit": "^5.0.2"
   }
 }

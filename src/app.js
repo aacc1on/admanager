@@ -9,6 +9,7 @@ const adminRoutes = require('./routes/admin');
 const passwordResetRoutes = require('./routes/passwordReset');
 const groupsRoutes = require('./routes/groups');
 const directoryRoutes = require('./routes/directory');
+const bulkRoutes = require('./routes/bulk');
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use('/admin', adminRoutes);
 app.use('/reset-password', passwordResetRoutes);
 app.use('/groups', groupsRoutes);
 app.use('/directory', directoryRoutes);
+app.use('/bulk', bulkRoutes);
 app.use('/', routes);
 
 app.use(function (err, req, res, next) {

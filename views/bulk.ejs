@@ -1,0 +1,71 @@
+<!-- File: views/bulk.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bulk Actions — User Provisioning</title>
+  <link rel="icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQvnjZCZE0ZXCJzVO6mQGgrSYwmI9FMzAi5PQJbvAmrqw&s=10" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="top-bar">
+      <div class="top-bar-actions">
+        <a href="/" class="link-button">Back to form</a>
+        <a href="/groups" class="link-button">Groups</a>
+        <a href="/directory" class="link-button">Directory</a>
+        <a href="/reset-password" class="link-button">Password Reset</a>
+        <% if (role === 'admin') { %>
+          <a href="/admin" class="link-button">Admin Panel</a>
+        <% } %>
+        <form method="POST" action="/logout" class="logout-form">
+          <span class="signed-in-as">Signed in as <strong><%= username %></strong></span>
+          <button type="submit" class="link-button">Sign out</button>
+        </form>
+      </div>
+    </header>
+
+    <div class="brand-banner">
+      <img class="brand-logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQvnjZCZE0ZXCJzVO6mQGgrSYwmI9FMzAi5PQJbvAmrqw&s=10" alt="BetConstruct logo" />
+      <h1>Bulk Actions</h1>
+    </div>
+
+    <div class="notice notice-info">
+      For large tickets: paste every account email, one per line (or comma-separated), pick an action, and run it
+      against all of them in one go. Enable/Disable acts on each account directly; Password Reset resets every
+      account and sends one consolidated report (all new passwords) to the address you choose below — not to the
+      account holders themselves.
+    </div>
+
+    <form id="bulkForm" novalidate>
+      <label>Action
+        <select id="bulkAction" name="action">
+          <option value="disable">Disable accounts</option>
+          <option value="enable">Enable accounts</option>
+          <option value="reset">Reset passwords</option>
+        </select>
+      </label>
+
+      <label>Account emails (one per line)
+        <textarea id="bulkEmails" name="emails" placeholder="john.smith@bcapps.cloud&#10;jane.doe@bcapps.cloud&#10;..." required></textarea>
+        <span class="hint" id="emailCountHint">0 email(s) detected</span>
+      </label>
+
+      <label id="notifyEmailRow" hidden>
+        Send password reset report to
+        <input type="email" id="bulkNotifyEmail" name="notifyEmail" placeholder="you@company.com" />
+        <span class="hint">One email with every account/new-password pair from this batch — sent here, not to each account.</span>
+      </label>
+
+      <button type="submit" id="bulkSubmitBtn">Run</button>
+    </form>
+
+    <section id="statusWindow" class="status-window" hidden>
+      <h2>Status</h2>
+      <ul id="statusList"></ul>
+    </section>
+  </main>
+  <script src="/js/bulk.js"></script>
+</body>
+</html>

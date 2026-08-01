@@ -76,6 +76,21 @@ function createShortcut(desktopDir, launcherPath) {
   return fs.existsSync(shortcutPath) ? shortcutPath : null;
 }
 
+// fs.cpSync (used to seed data/ below) copies each file's ACL as-is from the
+// project folder rather than inheriting the shared folder's — so on every
+// fresh seed, app.db/logs end up owned/writable only by whoever ran this
+// script, and every other Windows account can read but not write the shared
+// DB, silently crashing the app for them on startup. Re-grant Modify to all
+// local users on every run so this can never regress.
+function grantUsersWriteAccess(dir) {
+  if (!fs.existsSync(dir)) return;
+  try {
+    execFileSync('icacls', [dir, '/grant', 'BUILTIN\\Users:(OI)(CI)M', '/T', '/Q'], { stdio: 'pipe' });
+  } catch (err) {
+    console.error('Could not grant BUILTIN\\Users write access to ' + dir + ': ' + err.message);
+  }
+}
+
 function main() {
   if (!fs.existsSync(DIST_EXE)) {
     console.error('dist/UserProvisioning.exe not found — run "npm run build:exe" first.');
@@ -110,6 +125,12 @@ function main() {
   } else {
     console.log('data/app.db already exists at the shared location — left untouched (this is the live, shared DB).');
   }
+
+  console.log('Granting every local user write access to the shared data/logs (needed for the SQLite DB and log files)...');
+  grantUsersWriteAccess(sharedData);
+  const sharedLogs = path.join(SHARED_DIR, 'logs');
+  fs.mkdirSync(sharedLogs, { recursive: true });
+  grantUsersWriteAccess(sharedLogs);
 
   console.log('Writing hidden launcher (' + LAUNCHER_NAME + ')...');
   const launcherPath = path.join(SHARED_DIR, LAUNCHER_NAME);

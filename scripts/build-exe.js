@@ -15,6 +15,9 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const esbuild = require('esbuild');
+const { Jimp } = require('jimp');
+const pngToIco = require('png-to-ico').default;
+const { rcedit } = require('rcedit');
 
 const ROOT = path.join(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
@@ -27,6 +30,8 @@ const EXE_FILE = path.join(DIST, EXE_NAME);
 const SENTINEL_FUSE = 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
 const DEPLOY = path.join(ROOT, 'deploy');
 const EMBED_DIRS = ['views', 'public', 'assets'];
+const ICON_SOURCE = path.join(ROOT, 'assets', 'logo-source.png');
+const ICON_FILE = path.join(DIST, 'icon.ico');
 
 function run(cmd, args) {
   console.log('> ' + cmd + ' ' + args.join(' '));
@@ -59,11 +64,32 @@ function buildEmbeddedAssetsManifest() {
   return manifest;
 }
 
+// The base .exe is a raw copy of node.exe, so it carries Node's own icon
+// unless we overwrite it — pad the (non-square) source logo onto a square
+// canvas, render it at the standard Windows icon sizes, and pack those into
+// a single multi-resolution .ico for rcedit to set as the exe's resource icon.
+async function buildIconIco() {
+  if (!fs.existsSync(ICON_SOURCE)) return null;
+  const src = await Jimp.read(ICON_SOURCE);
+  const size = Math.max(src.bitmap.width, src.bitmap.height);
+  const square = new Jimp({ width: size, height: size, color: 0xffffffff });
+  square.composite(src, Math.round((size - src.bitmap.width) / 2), Math.round((size - src.bitmap.height) / 2));
+
+  const pngFiles = await Promise.all([256, 48, 32, 16].map(async function (s) {
+    const p = path.join(DIST, 'icon-' + s + '.png');
+    await square.clone().resize({ w: s, h: s }).write(p);
+    return p;
+  }));
+  const icoBuffer = await pngToIco(pngFiles);
+  fs.writeFileSync(ICON_FILE, icoBuffer);
+  return ICON_FILE;
+}
+
 async function main() {
   fs.rmSync(DIST, { recursive: true, force: true });
   fs.mkdirSync(DIST, { recursive: true });
 
-  console.log('\n[1/5] Bundling server code with esbuild...');
+  console.log('\n[1/6] Bundling server code with esbuild...');
   await esbuild.build({
     entryPoints: [path.join(ROOT, 'src', 'server.js')],
     bundle: true,
@@ -74,13 +100,13 @@ async function main() {
     logLevel: 'info'
   });
 
-  console.log('\n[2/5] Embedding views/public/assets and the default .env template...');
+  console.log('\n[2/6] Embedding views/public/assets and the default .env template...');
   const manifest = buildEmbeddedAssetsManifest();
   fs.writeFileSync(EMBEDDED_ASSETS_FILE, JSON.stringify(manifest));
   console.log('Embedded ' + Object.keys(manifest).length + ' files (' +
     Math.round(fs.statSync(EMBEDDED_ASSETS_FILE).size / 1024) + ' KB manifest).');
 
-  console.log('\n[3/5] Generating SEA blob...');
+  console.log('\n[3/6] Generating SEA blob...');
   fs.writeFileSync(SEA_CONFIG_FILE, JSON.stringify({
     main: BUNDLE_FILE,
     output: BLOB_FILE,
@@ -94,10 +120,19 @@ async function main() {
   }, null, 2));
   run(process.execPath, ['--experimental-sea-config', SEA_CONFIG_FILE]);
 
-  console.log('\n[4/5] Copying node.exe as the base executable...');
+  console.log('\n[4/6] Copying node.exe as the base executable...');
   fs.copyFileSync(process.execPath, EXE_FILE);
 
-  console.log('\n[5/5] Injecting the app blob into the executable (postject)...');
+  console.log('\n[5/6] Setting the executable icon from assets/logo-source.png...');
+  const iconFile = await buildIconIco();
+  if (iconFile) {
+    await rcedit(EXE_FILE, { icon: iconFile });
+    console.log('Icon set.');
+  } else {
+    console.log('No assets/logo-source.png found — keeping the default Node.js icon.');
+  }
+
+  console.log('\n[6/6] Injecting the app blob into the executable (postject)...');
   run(process.execPath, [
     path.join(ROOT, 'node_modules', 'postject', 'dist', 'cli.js'),
     EXE_FILE,
