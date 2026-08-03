@@ -34,23 +34,46 @@ function findChromiumBrowser() {
 // process may call process.exit() right after (the "already running, just
 // open a tab" path), and a non-detached child can get cut off along with it
 // before it actually gets around to opening anything.
-function openBrowser(url) {
+//
+// Errors here are logged (not swallowed): a failure is otherwise completely
+// invisible to whoever clicked the shortcut — nothing opens and no window
+// pops up to explain why, and it may only affect some Windows accounts on
+// this shared machine (different profile state, policy, etc.) and not
+// others, which is impossible to diagnose without something written down.
+function openDefaultBrowserTab(url) {
   let child;
   if (process.platform === 'win32') {
-    const browserPath = findChromiumBrowser();
-    if (browserPath) {
-      child = spawn(browserPath, ['--app=' + url], { detached: true, stdio: 'ignore' });
-    } else {
-      // No Edge/Chrome found (unusual on Windows 10/11) — fall back to
-      // whatever the default browser association is, as a normal tab.
-      child = spawn('rundll32', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore', windowsHide: true });
-    }
+    child = spawn('rundll32', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore', windowsHide: true });
   } else if (process.platform === 'darwin') {
     child = spawn('open', [url], { detached: true, stdio: 'ignore' });
   } else {
     child = spawn('xdg-open', [url], { detached: true, stdio: 'ignore' });
   }
-  child.on('error', function () { /* best-effort; nothing to do if this fails */ });
+  child.on('error', function (err) {
+    try { require('./utils/logger').logger.error('openDefaultBrowserTab failed: ' + err.message); } catch (logErr) { /* logging is best-effort here */ }
+  });
+  child.unref();
+}
+
+function openBrowser(url) {
+  if (process.platform !== 'win32') {
+    openDefaultBrowserTab(url);
+    return;
+  }
+
+  const browserPath = findChromiumBrowser();
+  if (!browserPath) {
+    // No Edge/Chrome found in the usual install paths (unusual on Windows
+    // 10/11) — fall back to whatever the default browser association is.
+    openDefaultBrowserTab(url);
+    return;
+  }
+
+  const child = spawn(browserPath, ['--app=' + url], { detached: true, stdio: 'ignore' });
+  child.on('error', function (err) {
+    try { require('./utils/logger').logger.error('App-mode browser launch (' + browserPath + ') failed: ' + err.message + ' — falling back to the default browser tab.'); } catch (logErr) { /* logging is best-effort here */ }
+    openDefaultBrowserTab(url);
+  });
   child.unref();
 }
 
