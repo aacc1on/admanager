@@ -210,6 +210,7 @@ async function streamProvisioning(req, res) {
         } catch (mailErr) {
           logger.error('Email sending failed for ' + entry.email + ': ' + mailErr.message);
           auditEntry.status = 'CompletedWithEmailError';
+          auditEntry.error = mailErr.message;
           emailErrorCount++;
           sseSend(res, {
             step: step + '-email',

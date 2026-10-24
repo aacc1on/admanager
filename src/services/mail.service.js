@@ -2,8 +2,24 @@
 const nodemailer = require('nodemailer');
 const path = require('path');
 const { getBaseDir } = require('../utils/baseDir');
+const { logger } = require('../utils/logger');
 
 let transporter = null;
+
+// nodemailer's default is to wait 2 minutes for a connection, which is why
+// every failed email used to hang the UI for ~121s. A healthy connection here
+// (TLS through Kaspersky's interception) is up in ~2-3s, so an attempt that
+// isn't up after these is dead and the next one should start.
+const CONNECTION_TIMEOUT_MS = 15000;
+const GREETING_TIMEOUT_MS = 15000;
+const SOCKET_TIMEOUT_MS = 60000;
+// Pauses before the 2nd and 3rd attempt.
+const RETRY_DELAYS_MS = [5000, 10000];
+// Network-level failures (TCP/TLS never established, greeting never arrived,
+// reset, DNS): the server never answered, so a fresh attempt can succeed.
+// Anything carrying an SMTP response code (bad credentials, rejected
+// recipient, ...) is a definitive answer and isn't retried.
+const TRANSIENT_CODES = ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'EDNS', 'ETLS'];
 
 const LOGO_URL = 'https://www.softconstruct.com/fs/userFiles-v2/softconstruct-18748504/images/logo.svg?v=1762875358';
 const BRAND = '#a61e64';
@@ -18,7 +34,7 @@ const GUIDE_ATTACHMENT = {
 
 function getTransporter() {
   if (transporter) return transporter;
-  const { SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS } = process.env;
+  const { SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, SMTP_ALLOW_SELF_SIGNED_TLS } = process.env;
   if (!SMTP_HOST) {
     throw new Error('SMTP_HOST-ը սահմանված չէ .env-ում');
   }
@@ -26,9 +42,53 @@ function getTransporter() {
     host: SMTP_HOST,
     port: parseInt(SMTP_PORT || '587', 10),
     secure: SMTP_SECURE === 'true',
-    auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined
+    auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+    connectionTimeout: CONNECTION_TIMEOUT_MS,
+    greetingTimeout: GREETING_TIMEOUT_MS,
+    socketTimeout: SOCKET_TIMEOUT_MS,
+    // Local antivirus/proxy TLS inspection (e.g. Kaspersky "Scan encrypted
+    // connections") substitutes its own certificate for the mail server's,
+    // which Node's CA bundle doesn't trust — scoped to only this SMTP socket
+    // (not the whole process). Stopgap only, until that software excludes
+    // this host/app from inspection — remove SMTP_ALLOW_SELF_SIGNED_TLS once it does.
+    tls: SMTP_ALLOW_SELF_SIGNED_TLS === 'true' ? { rejectUnauthorized: false } : undefined
   });
   return transporter;
+}
+
+function isTransient(err) {
+  return !err.responseCode && TRANSIENT_CODES.indexOf(err.code) !== -1;
+}
+
+function delay(ms) {
+  return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
+
+// Connections from this network to smtp.gmail.com:465 intermittently never
+// get established ("Connection timeout" — nothing reaches the server), and a
+// single 2-minute attempt was all an email got. Every retry is a brand-new
+// connection, since the transport isn't pooled.
+async function sendMail(message) {
+  const maxAttempts = RETRY_DELAYS_MS.length + 1;
+  const failures = [];
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const info = await getTransporter().sendMail(message);
+      if (failures.length) {
+        logger.warn('Email to ' + message.to + ' delivered on attempt ' + attempt + ' (earlier: ' + failures.join('; ') + ')');
+      }
+      return info;
+    } catch (err) {
+      failures.push((err.code || 'ERROR') + ' ' + err.message);
+      if (!isTransient(err) || attempt === maxAttempts) {
+        if (attempt > 1) err.message += ' (after ' + attempt + ' attempts)';
+        throw err;
+      }
+      const pause = RETRY_DELAYS_MS[attempt - 1];
+      logger.warn('Email attempt ' + attempt + '/' + maxAttempts + ' to ' + message.to + ' failed (' + failures[attempt - 1] + '), retrying in ' + pause / 1000 + 's');
+      await delay(pause);
+    }
+  }
 }
 
 function escapeHtml(value) {
@@ -102,7 +162,6 @@ function renderEmailHtml({ heading, intro, rows, footerNote }) {
 
 async function sendCredentialsEmail(toEmail, accountEmail, password) {
   const from = process.env.SMTP_FROM || 'no-reply@localhost';
-  const t = getTransporter();
   const html = renderEmailHtml({
     heading: 'Your account has been created',
     intro: 'An account has been provisioned for you. Use the credentials below to sign in, and make sure to change your password after your first login.',
@@ -112,7 +171,7 @@ async function sendCredentialsEmail(toEmail, accountEmail, password) {
     ],
     footerNote: 'If you were not expecting this email, please contact your administrator.'
   });
-  await t.sendMail({
+  await sendMail({
     from: from,
     to: toEmail,
     subject: 'Your account credentials',
@@ -124,7 +183,6 @@ async function sendCredentialsEmail(toEmail, accountEmail, password) {
 
 async function sendPasswordResetEmail(toEmail, accountEmail, password) {
   const from = process.env.SMTP_FROM || 'no-reply@localhost';
-  const t = getTransporter();
   const html = renderEmailHtml({
     heading: 'Your password has been reset',
     intro: 'The password for your account has just been reset. Use the new password below to sign in, and change it once you are logged in.',
@@ -134,7 +192,7 @@ async function sendPasswordResetEmail(toEmail, accountEmail, password) {
     ],
     footerNote: 'If you did not request this change, please contact your administrator immediately.'
   });
-  await t.sendMail({
+  await sendMail({
     from: from,
     to: toEmail,
     subject: 'Your password has been reset',
@@ -149,7 +207,6 @@ async function sendPasswordResetEmail(toEmail, accountEmail, password) {
 // requester), not the individual account holders.
 async function sendBulkResetReport(toEmail, results) {
   const from = process.env.SMTP_FROM || 'no-reply@localhost';
-  const t = getTransporter();
   const successes = results.filter(function (r) { return r.ok; });
   const failures = results.filter(function (r) { return !r.ok; });
 
@@ -164,7 +221,7 @@ async function sendBulkResetReport(toEmail, results) {
   const text = successes.map(function (r) { return r.email + ': ' + r.password; }).join('\n') +
     (failures.length ? '\n\nFailed:\n' + failures.map(function (f) { return f.email + ': ' + f.error; }).join('\n') : '');
 
-  await t.sendMail({
+  await sendMail({
     from: from,
     to: toEmail,
     subject: 'Bulk password reset report (' + successes.length + '/' + results.length + ')',
